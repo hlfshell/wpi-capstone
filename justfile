@@ -53,7 +53,7 @@ vm-stop:
     vagrant halt
 
 vm-rebuild:
-    vagrant destroy -y
+    vagrant destroy -f
     vagrant up
 
 vm-bash: vm-start

@@ -5,7 +5,7 @@ Vagrant.configure("2") do |config|
     config.vm.box = "ubuntu/jammy64"
   
     config.vm.synced_folder "./ros_ws", "/home/vagrant/ros_ws"
-    config.vm.synced_folder "./.code_server", "/home/vagrant/.code_server"
+    config.vm.synced_folder "./.code-server", "/home/vagrant/.code_server"
   
     config.vm.provider "virtualbox" do |vb|
       # Display the VirtualBox GUI when booting the machine
@@ -108,5 +108,4 @@ Vagrant.configure("2") do |config|
 
     SHELL
 
-    config.vm.provision "shell", path: "./envs/install.sh"
   end
