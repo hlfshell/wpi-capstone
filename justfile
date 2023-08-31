@@ -6,8 +6,16 @@ default:
 # ======================
 
 # lint python project code
-python-lint:
-    echo "TODO"
+lint:
+    flake8 ros_ws/src
+
+isort:
+    isort ros_ws/src
+
+black:
+    black ros_ws/src
+
+fix: isort black lint
 
 # ======================
 # Docker
