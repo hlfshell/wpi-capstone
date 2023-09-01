@@ -32,23 +32,27 @@ docker-halt:
 
 docker-rebuild: docker-rm-image docker-build
 
-# docker ros2 bash
-docker-bash: docker-build
+# docker ros2 core
+docker-ros:
+    docker ps | grep capstone-ros >/dev/null || \
     docker run \
         -it --rm \
+        --name capstone-ros \
         --mount type=bind,source=./ros_ws,target=/ros_ws \
-        capstone-ros bash
+        --mount type=bind,source=./.code-server,target=/code-server \
+        --mount type=bind,source=./envs/.bashrc,target=/root/.bashrc \
+        capstone-ros \
+        bash
+
+# docker bash shell into core ros2 server (if the core is not running, this will be the core)
+docker-bash: docker-ros
+    docker exec -it capstone-ros /bin/bash 
 
 # docker vs code environment
-docker-vs-code: docker-build
-    mkdir -p ./.code-server
-    docker run \
-        --name capstone-ros-code-server \
-        --mount type=bind,source=./.code-server,target=/code-server \
-        --mount type=bind,source=./ros_ws,target=/ros_ws \
-        capstone-ros code tunnel \
-            --name capstone-ros --accept-server-license-terms \
-            --cli-data-dir ./code-server --no-sleep
+docker-vs-code: docker-ros
+    docker exec -it capstone-ros code tunnel \
+        --name capstone-ros --accept-server-license-terms \
+        --cli-data-dir /code-server --no-sleep
 
 # ======================
 # VM
