@@ -10,6 +10,7 @@ This document will act as a quickstart guide for setting up your environment for
 * [ ] [vagrant](https://developer.hashicorp.com/vagrant/downloads) installed and set up on your machine's `PATH`
 * [ ] [just](https://github.com/casey/just) installed and set up on your machine's `PATH`
 * [ ] A virtual environment manager for Python (such as `pyenv` or `virtualenv`)
+* [ ] If you are a macOS user, you need to `brew install coreutils` for the `realpath` command.
 
 # Python setup
 
