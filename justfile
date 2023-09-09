@@ -38,9 +38,9 @@ docker-ros:
     docker run \
         -it --rm \
         --name capstone-ros \
-        --mount type=bind,source=./ros_ws,target=/ros_ws \
-        --mount type=bind,source=./.code-server,target=/code-server \
-        --mount type=bind,source=./envs/.bashrc,target=/root/.bashrc \
+        --mount type=bind,source=$(realpath .)/ros_ws,target=/ros_ws \
+        --mount type=bind,source=$(realpath .)/.code-server,target=/code-server \
+        --mount type=bind,source=$(realpath .)/envs/.bashrc,target=/root/.bashrc \
         capstone-ros \
         bash
 
