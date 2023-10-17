@@ -36,6 +36,7 @@ RUN apt upgrade -y
 
 ENV LANG en_US.UTF-8
 ENV DEBIAN_FRONTEND noninteractive
+RUN apt install -y build-essential
 RUN apt install -y ros-humble-ros-core
 RUN apt install -y python3-colcon-common-extensions
 
