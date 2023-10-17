@@ -1,0 +1,4 @@
+string prompt
+float64 temperature
+---
+string result
