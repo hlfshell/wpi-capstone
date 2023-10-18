@@ -68,6 +68,8 @@ RUN apt install -y ros-humble-navigation2
 RUN apt install -y ros-humble-nav2-bringup
 RUN apt install -y ros-humble-slam-toolbox
 RUN apt install -y ros-humble-tf-transformations
+RUN apt install -y ros-humble-rmw-cyclonedds-cpp
+RUN echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> /home/vagrant/.bashrc
 
 # ==========================================
 # 3. Installing other tools
