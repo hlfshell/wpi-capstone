@@ -14,6 +14,14 @@ RUN locale-gen en_US en_US.UTF-8
 RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 RUN export LANG=en_US.UTF-8
 
+# To make life easier, we are creating a vagrant user so it
+# matches the VM so you can bounce between VM and Docker
+# container easily
+RUN useradd -m vagrant
+RUN usermod -a -G root vagrant
+RUN echo 'vagrant ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+RUN mkdir -p /home/vagrant/ros_ws
+
 # -------------
 # 1.2 - Add Additional Repositories
 # -------------
@@ -44,7 +52,9 @@ RUN apt install -y python3-colcon-common-extensions
 # 1.4 - Source ROS
 # -------------
 
-# RUN echo 'source /opt/ros/humble/setup.bash' >> /home/vagrant/.bashrc
+RUN echo 'source /opt/ros/humble/setup.bash' >> /home/vagrant/.bashrc
+RUN echo "set +e" >> /home/vagrant/.bashrc
+RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc
 
 # ==========================================
 # 2. Installing Navigation2
@@ -68,6 +78,7 @@ RUN tar -xf vscode_cli.tar.gz
 RUN mv code /usr/local/bin/
 
 COPY ./envs/ros_entrypoint.sh /
+RUN chmod +x /ros_entrypoint.sh
 
 ENV ROS_DISTRO humble
 

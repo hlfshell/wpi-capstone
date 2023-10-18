@@ -38,7 +38,7 @@ docker-ros:
     docker run \
         -it --rm \
         --name capstone-ros \
-        --mount type=bind,source=$(realpath .)/ros_ws,target=/ros_ws \
+        --mount type=bind,source=$(realpath .)/ros_ws,target=/home/vagrant/ros_ws \
         --mount type=bind,source=$(realpath .)/.code-server,target=/code-server \
         --mount type=bind,source=$(realpath .)/envs/.bashrc,target=/root/.bashrc \
         capstone-ros \
@@ -46,7 +46,7 @@ docker-ros:
 
 # docker bash shell into core ros2 server (if the core is not running, this will be the core)
 docker-bash: docker-ros
-    docker exec -it capstone-ros /bin/bash 
+    docker exec --user vagrant -it capstone-ros /bin/bash 
 
 # docker vs code environment
 docker-vs-code: docker-ros
