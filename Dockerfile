@@ -78,11 +78,17 @@ RUN echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> /home/vagrant/.bashrc
 RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output vscode_cli.tar.gz
 RUN tar -xf vscode_cli.tar.gz
 RUN mv code /usr/local/bin/
+RUN apt install -y python3-pip
 
 COPY ./envs/ros_entrypoint.sh /
 RUN chmod +x /ros_entrypoint.sh
 
 ENV ROS_DISTRO humble
+
+COPY ./ros_ws/src/requirements.txt /home/vagrant/ros_ws/src/requirements.txt
+WORKDIR /home/vagrant/ros_ws/src
+RUN pip3 install -r requirements.txt
+WORKDIR /home/vagrant/ros_ws
 
 ENTRYPOINT [ "/bin/bash", "/ros_entrypoint.sh" ]
 CMD ["bash"]
