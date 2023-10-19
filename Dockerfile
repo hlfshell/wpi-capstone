@@ -14,6 +14,14 @@ RUN locale-gen en_US en_US.UTF-8
 RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 RUN export LANG=en_US.UTF-8
 
+# To make life easier, we are creating a vagrant user so it
+# matches the VM so you can bounce between VM and Docker
+# container easily
+RUN useradd -m vagrant
+RUN usermod -a -G root vagrant
+RUN echo 'vagrant ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+RUN mkdir -p /home/vagrant/ros_ws
+
 # -------------
 # 1.2 - Add Additional Repositories
 # -------------
@@ -44,7 +52,9 @@ RUN apt install -y python3-colcon-common-extensions
 # 1.4 - Source ROS
 # -------------
 
-# RUN echo 'source /opt/ros/humble/setup.bash' >> /home/vagrant/.bashrc
+RUN echo 'source /opt/ros/humble/setup.bash' >> /home/vagrant/.bashrc
+RUN echo "set +e" >> /home/vagrant/.bashrc
+RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc
 
 # ==========================================
 # 2. Installing Navigation2
@@ -58,6 +68,8 @@ RUN apt install -y ros-humble-navigation2
 RUN apt install -y ros-humble-nav2-bringup
 RUN apt install -y ros-humble-slam-toolbox
 RUN apt install -y ros-humble-tf-transformations
+RUN apt install -y ros-humble-rmw-cyclonedds-cpp
+RUN echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> /home/vagrant/.bashrc
 
 # ==========================================
 # 3. Installing other tools
@@ -66,10 +78,17 @@ RUN apt install -y ros-humble-tf-transformations
 RUN curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output vscode_cli.tar.gz
 RUN tar -xf vscode_cli.tar.gz
 RUN mv code /usr/local/bin/
+RUN apt install -y python3-pip
 
 COPY ./envs/ros_entrypoint.sh /
+RUN chmod +x /ros_entrypoint.sh
 
 ENV ROS_DISTRO humble
+
+COPY ./ros_ws/src/requirements.txt /home/vagrant/ros_ws/src/requirements.txt
+WORKDIR /home/vagrant/ros_ws/src
+RUN pip3 install -r requirements.txt
+WORKDIR /home/vagrant/ros_ws
 
 ENTRYPOINT [ "/bin/bash", "/ros_entrypoint.sh" ]
 CMD ["bash"]
