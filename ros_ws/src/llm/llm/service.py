@@ -1,52 +1,36 @@
+from typing import Optional
+
 import rclpy
+from capstone_interfaces.srv import LLM
 from llm.providers import OpenAI, PaLM
 from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
 
-from capstone_interfaces.srv import LLM
-
 
 class LLMService(Node):
-    def __init__(self):
+    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
         super().__init__("llm_service")
 
-        self.initialize_parameters()
+        self.declare_parameter(
+            "provider", "", ParameterDescriptor(description="LLM service provider")
+        )
+        self.declare_parameter(
+            "model", "", ParameterDescriptor(description="LLM service model")
+        )
+
+        if provider is None:
+            provider = self.get_parameter("provider").get_parameter_value().string_value
+        if model is None:
+            model = self.get_parameter("model").get_parameter_value().string_value
+
+        if provider == "openai":
+            self.provider = OpenAI(None, model)
+        elif provider == "palm":
+            self.provider = PaLM(None, model)
+        else:
+            raise ValueError(f"Unknown provider {provider}")
 
         self.srv = self.create_service(LLM, "prompt", self.prompt_callback)
-
-    def initialize_parameters(self) -> None:
-        self.declare_parameter(
-            "provider",
-            "",
-            ParameterDescriptor(
-                description="Which LLM provider (openai or palm) to use"
-            ),
-        )
-
-        self.declare_parameter(
-            "model",
-            "",
-            ParameterDescriptor(
-                description="Which LLM model to use (provider dependent - leave blank for default)"
-            ),
-        )
-
-        self.provider = (
-            self.get_parameter("provider").set_parameter_value().string_value
-        )
-        self.model = self.get_parameter("model").set_parameter_value().string_value
-
-        print("Hey I got the stuff", self.provider, self.model)
-
-    def initialize_provider(self) -> None:
-        # Determine the provider; this will crash if an environment variable
-        # for the provider is not set
-        if self.provider == "openai":
-            self.provider = OpenAI(None, self.model)
-        elif self.provider == "palm":
-            self.provider = PaLM(None, self.model)
-        else:
-            raise ValueError(f"Unknown provider {self.provider}")
 
     def prompt_callback(self, request: LLM.Request, response: LLM.Response):
         self.get_logger().debug(request.prompt)

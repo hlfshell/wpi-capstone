@@ -1,8 +1,9 @@
-import openai
 import os
 from abc import ABC, abstractmethod
 from typing import Optional
+
 import google.generativeai as palm
+import openai
 
 
 class Provider(ABC):
@@ -22,7 +23,7 @@ class OpenAI(Provider):
         else:
             openai.api_key = key
 
-        if model is None:
+        if model is None or model == "":
             self.model = "gpt-3.5-turbo-instruct"
         else:
             self.model = model
@@ -46,7 +47,7 @@ class PaLM(Provider):
             api_key = key
         palm.configure(api_key=api_key)
 
-        if model is None:
+        if model is None or model == "":
             self.model = "models/text-bison-001"
         else:
             self.model = model
@@ -57,6 +58,5 @@ class PaLM(Provider):
             prompt=prompt,
             temperature=temperature,
         )
-        print(completion)
-        print(completion.result)
-        return ""
+
+        return completion.result
