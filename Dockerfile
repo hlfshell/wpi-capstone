@@ -85,6 +85,12 @@ RUN chmod +x /ros_entrypoint.sh
 
 ENV ROS_DISTRO humble
 
+# Source env vars for root and vagrant users
+RUN echo "FILE=/home/vagrant/ros_ws/.env" >> /home/vagrant/.bashrc
+RUN echo "if [ -f "$FILE" ]; then" >> /home/vagrant/.bashrc
+RUN echo "    source /home/vagrant/ros_ws/.env" >> /home/vagrant/.bashrc
+RUN echo "fi" >> /home/vagrant/.bashrc
+
 COPY ./ros_ws/src/requirements.txt /home/vagrant/ros_ws/src/requirements.txt
 WORKDIR /home/vagrant/ros_ws/src
 RUN pip3 install -r requirements.txt
