@@ -54,6 +54,9 @@ docker-vs-code: docker-ros
         --name capstone-ros --accept-server-license-terms \
         --cli-data-dir /code-server --no-sleep
 
+docker-pip-install:
+    docker exec capstone-ros pip3 install -r /home/vagrant/ros_ws/src/requirements.txt
+
 # ======================
 # VM
 # ======================
@@ -70,6 +73,9 @@ vm-rebuild:
 
 vm-bash: vm-start
     vagrant ssh
+
+vm-pip-install: vm-start
+    vagrant ssh -c "pip3 install -r /home/vagrant/ros_ws/src/requirements.txt"
 
 # Run 
 vm-vs-code: vm-start
