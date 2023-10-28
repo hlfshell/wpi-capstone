@@ -106,6 +106,11 @@ Vagrant.configure("2") do |config|
         tar -xf vscode_cli.tar.gz
         mv code /usr/local/bin/
 
+        echo "FILE=/home/vagrant/ros_ws/.env" >> /home/vagrant/.bashrc
+        echo "if [ -f "$FILE" ]; then" >> /home/vagrant/.bashrc
+        echo "    source /home/vagrant/ros_ws/.env" >> /home/vagrant/.bashrc
+        echo "fi" >> /home/vagrant/.bashrc
+
     SHELL
 
   end
