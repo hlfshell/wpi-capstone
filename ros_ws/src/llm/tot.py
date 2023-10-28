@@ -1,6 +1,6 @@
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, Future, wait
-from llm.providers import Provider
+from providers import Provider
 from retry import retry
 from time import time
 
@@ -18,51 +18,76 @@ class Step:
         result: Optional[str] = None,
         children: List[Step] = [],
         rating: Optional[float] = None,
-        labels: List[str] = [],
+        completed: bool = False,
     ):
         self.prompt = prompt
         self.result = result
         self.children = children
         self.rating = rating
-        self.labels = labels
+        self.completed = completed
 
     def clone(self) -> Step:
         return Step(
             self.prompt,
             self.result,
-            [thought.clone() for thought in self.children],
+            children=[thought.clone() for thought in self.children],
+            rating=self.rating,
+            completed=self.completed,
         )
 
-    def has_label(self, label: str) -> bool:
-        return label in self.labels
+    def is_complete(self) -> bool:
+        """
+        is_complete checks to see if this node or one
+        of its children is "completed" and thus a possible
+        answer to the query.
+        """
+        if self.completed:
+            return True
+        for child in self.children:
+            if child.is_complete():
+                return True
+        return False
 
-    def html(self, collapsed: bool = False) -> str:
+    def html(self, wrap_in_html: bool = True) -> str:
         """
         html creates an increasingly more nested
         collapsible html representation of a set of
         thoughts.
 
-        it assumes that the css file tot.css is loaded
-        and thus uses classes "collapsed" within there.
+        If wrap_in_html is True, then the html is wrapped
+        in a full html document with a style tag that
+        cleans up the css for the html generated.
         """
 
         children_html = ""
         for child in self.children:
-            children_html += child.html(collapsed=True)
-
-        complete = self.has_label("complete")
+            children_html += child.html(wrap_in_html=False)
 
         html = f"""
-            <div class="tot">
-                <div class="title {"complete" if complete else ""}">
-                    {self.result}
-                </div>
-                <div class="rating">Rating: {self.rating}</div>
-                <div class="children {"collapsed" if collapsed else ""}">
-                    {{children_html}}
-                </div>
-            </div>
+            <details class="tot">
+                <summary class="summary-step{" complete" if self.is_complete()
+                    else ""}">{self.result} | {f'Rating: {self.rating}' if
+                        self.rating is not None else ""}
+                </summary>
+                {children_html}
+            </details>
         """
+
+        if wrap_in_html:
+            html = f"""
+                <html>
+                    <head>
+                        <style>
+                            {CSS}
+                        </style>
+                    </head>
+                    <body>
+                        <div id="wrapper">
+                            {html}
+                        </div>
+                    </body>
+                </html>
+            """
 
         return html
 
@@ -304,3 +329,56 @@ class TreeOfThoughts:
 # Execute process
 
 # 1 - for targe prompt, generate N possible answers
+CSS = """
+#wrapper {
+    margin: 0 auto;
+    width: 80%;
+}
+
+details[open] details {
+  animation: animateDown 0.2s linear forwards;
+}
+
+@keyframes animateDown {
+  0% {
+    opacity: 0;
+    transform: translatey(-15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translatey(0);
+  }
+}
+
+details details {
+    margin-left: 20px;
+    border-left: 3px rgba(128, 128, 128, 0.5) solid;
+    padding-left: 5px;
+}
+
+summary {
+    display: block;
+}
+
+summary::after {
+    margin-left: 1ch;
+    display: inline-block;
+    transition: 0.2s;
+}
+
+details summary::after {
+    content: '➕';
+}
+
+details[open] summary::after {
+    content: '➖';
+}
+
+details:not([open]) summary::after {
+    content: '➕';
+}
+
+.complete {
+    background-color: rgba(19, 227, 42, 0.5);
+}
+"""
