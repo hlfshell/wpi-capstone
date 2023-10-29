@@ -1,14 +1,13 @@
 from __future__ import annotations
-from concurrent.futures import ThreadPoolExecutor, Future, wait
+
+from abc import ABC, abstractmethod
+from concurrent.futures import Future, ThreadPoolExecutor, wait
+from time import time
+from typing import List, Optional, Union
+from uuid import uuid4
+
 from providers import Provider
 from retry import retry
-from time import time
-
-from typing import Optional, List
-
-UNKNOWN = 0
-COMPLETE = 1
-BAD = 2
 
 
 class Step:
@@ -20,6 +19,7 @@ class Step:
         rating: Optional[float] = None,
         completed: bool = False,
     ):
+        self._id = uuid4()
         self.prompt = prompt
         self.result = result
         self.children = children
@@ -27,13 +27,38 @@ class Step:
         self.completed = completed
 
     def clone(self) -> Step:
-        return Step(
+        clone = Step(
             self.prompt,
             self.result,
             children=[thought.clone() for thought in self.children],
             rating=self.rating,
             completed=self.completed,
         )
+        clone._id = self._id
+        return clone
+
+    def isolate_chain(self, step: Union[str, Step]) -> Step:
+        """
+        isolate_chain will return the chain of steps to the desired
+        step/step id, with all branches pruned
+        """
+        # check to see if step is a Step
+        if isinstance(step, Step):
+            id = step._id
+        else:
+            id = step
+
+        if self._id == id:
+            clone = self.clone()
+            clone.children = []
+            return clone
+        for child in self.children:
+            chain = child.isolate_chain(id)
+            if chain is not None and len(chain) > 0:
+                clone = self.clone()
+                clone.children = [chain]
+                return clone
+        return None
 
     def is_complete(self) -> bool:
         """
@@ -47,6 +72,14 @@ class Step:
             if child.is_complete():
                 return True
         return False
+
+    def __eq__(self, __value: object) -> bool:
+        if __value is None:
+            return False
+        return self._id == __value._id
+
+    def generate_string_to(step: Step) -> str:
+        pass
 
     def html(self, wrap_in_html: bool = True) -> str:
         """
@@ -92,15 +125,14 @@ class Step:
         return html
 
 
-class TreeOfThoughts:
+class TreeOfThoughts(ABC):
     def __init__(
         self,
         provider: Provider,
-        control_prompt: str,
-        evaluate_prompt: str,
         evaluation_categories: List[str],
+        evaluation_category_scores: Optional[List[float]] = None,
         temperature: float = 0.7,
-        width: int = 4,
+        children_fan_out: int = 0,
         max_time: Optional[float] = None,
         max_steps: Optional[int] = None,
     ) -> None:
@@ -110,130 +142,106 @@ class TreeOfThoughts:
         set of prompts, evaluation categories, and configuration settings to
         try to derive the desired output from the given LLM provider.
 
-        provider: Provider - the LLM provider to use for prompting
-        control_prompt: str - the prompt to use for generating each initial
-            thought.  It utilizes placeholder templates that are replaced at
-            prompt generation time to input the next set of the prompt. Thus
-            you must at instantiation of the ToT engine provide a prompt that
-            can have the engine generate the next possible step. The control
-            prompt always assumes that the desired output for each step is:
-            1 - Reason - the reasoning for the next step in the process
-            2 - Step: the next step in the process.
-            For instance, if the goal of the engine is to solve algebraic
-            equations, we would expect a given next step for the equation
-            (x + 2 = 4) to be something along the lines of:
-
-            Reason: Subtract 2 from both sides
-            Step: x = 2
-
-            ...in that format.
-
-            The placeholder templates within the prompt are as follows:
-            {{state_all}} - the latest entirety of generate steps alone
-            {{state_last}} - the latest step only, without its reasoning
-            {{reason_state_all}} - the latest entirety of generated
-                reasoning and their steps, alternating to now
-            {{reason_state_last}} - the latest generated reasoning and
-                step
-
-            Thus using our previous example, a prompt could be:
-
-            ===
-            Given an the equation in its current step, generate an explanation
-            of the next step of algebra to perform to solve for x, and then
-            perform it. Only perform a single set of Reason and step. The
-            following examples show how to format your response:
-
-            Equation: x^2 - 3x + 4 = 0
-            Reason: Factor the equation
-            Step: (x - 1)(x - 4) = 0
-            Equation: (x - 1)(x - 4) = 0
-            Reason: We can see x is either 1 or 4
-            Step: x = 1 or x = 4
-
-            Equation: 3x - 12 = 24
-            Reason: Add 12 to both sides
-            Step: 3x = 36
-            Equation: 3x = 36
-            Reason: Divide both sides by 3
-            Step: x = 12
-
-            Equation: {{state_last}}
-
-            ===
-            ...where LLM generates the singular next step
-
-        evaluate_prompt: str - the prompt to use for evaluating the quality of
-            a given step. This prompt is asking the LLM to produce a set of
-            possible categorical labels which we'll convert to values (see
-            evaluation_categories). Reasoning for that labels is also expected
-            to be requested to improve performance. The placeholder templates
-            within this prompt are as follows:
-
-
-            {{state_last}} - the last generated step and its reason
-            {{evaluation_categories}} - a generated ordered list of possible
-                labels for the LLM to apply in response.
-
-            Thus using our previous example, a prompt could be:
-
-            ===
-            The following is a generated step for an algebraic equation.
-            Rate the reasoning and last step performance by assigning
-            one of the following categories:
-
-            {{evaluation_categories}}
-
-            Examples:
-
-            Equation: 3x - 12 = 24
-            Reason: Add 12 to both sides
-            Step: 3x = 36
-            Reason: This is a good step because it reduces us to one term on
-                each side
-            Rating: Good
-
-            Equation: 3x - 12 = 24
-            Reason: Divide each side by 3 to isolate x in its term
-            Step: x - 4 = 8
-            Reason: This is an okay step because it isolates X but doesn't
-                reduce the equation to a simpler form
-            Rating: Okay
-
-            Equation: e^(x+3) = 4
-            Reason: Divide by 13 to simplify
-            Step: e^(x+3)/13 = 4/13
-            Reason: This is a bad step because it doesn't simplify the equation
-                nor does it isolate x
-            Rating: Bad
-
-            {{reason_state_all}}
-
-            ===
 
 
         """
         self.provider = provider
 
+        self.evaluation_categories = evaluation_categories
         self.temperature = temperature
-        self.width = width
+        self.width = children_fan_out
         self.max_time = max_time
         self.max_steps = max_steps
         self.per_step_timeout = 10.0
         self.total_timeout = 60.0
 
+        # If the evaluation_category_scores is None, make it
+        # a set of floats evenly spaced from 0 to 1 based on the
+        # number of descriptor labels provided. IE if 3 labels
+        # are provided, then the scores will be [0.0, 0.5, 1.0]
+        if evaluation_category_scores is None:
+            evaluation_category_scores = [
+                i / (len(evaluation_categories) - 1)
+                for i in range(0, len(evaluation_categories))
+            ]
+        if len(evaluation_categories) != len(evaluation_category_scores):
+            raise ValueError(
+                "evaluation_categories and evaluation_category_scores must "
+                + "be the same length"
+            )
+
         self.llm_threadpool = ThreadPoolExecutor(max_workers=5)
 
-        self.generate_prompt = ""
-        self.evaluation_prompt = ""
+    @abstractmethod
+    def generate_step_prompt(self, steps: List[Step]) -> str:
+        """
+        generate_step_prompt takes the existing produced steps and
+        returns a new prompt that is used to ask the LLM for the
+        next step.
 
-    def rate(self, prompt: str) -> float:
+        Must be defined by the implementing class.
+        """
         pass
+
+    @abstractmethod
+    def parse_generation_response(self, response: str) -> Step:
+        """
+        parse_step_response takes the response from the LLM provider
+        and parses it into a string that is the next step and
+        its reasoning in the form of a Step
+
+        Must be defined by the implementing class.
+        """
+        pass
+
+    @abstractmethod
+    def evaluate_step_prompt(self, step: Step) -> str:
+        """
+        evaluate_step_prompt takes a generated step and returns
+        a new prompt that is used to ask the LLM to rate the step
+        based on a set of predetermined categorical labels.
+
+        Must be defined by the implementing class.
+        """
+        pass
+
+    @abstractmethod
+    def parse_evaluation_response(self, response: str) -> str:
+        """
+        parse_evaluation_response takes the response from the LLM's
+        evaluation of a given step and returns a string that is the
+        assigned categorical label for a given step.
+
+        Must be defined by the implementing class.
+        """
+        pass
+
+    def rate(self, step: Step) -> float:
+        """
+        rate will request a prompt for a given step and request
+        a labeled rating from the LLM provider. It will finally
+        return the float.
+
+        It can raise an error if the prompt fails after 3 retries
+        or if the parsed label is not in the evaluation_categories
+        """
+        rating_prompt = self.evaluate_step_prompt(step.prompt)
+        rating_response = self.prompt(rating_prompt)
+        label = self.parse_evaluation_response(rating_response)
+
+        # Find the label if it exists within the category store
+        label_index = self.evaluation_categories.index(label)
+        if label_index == -1:
+            raise ValueError(f"Unknown label {label}")
+
+        # Map the score to the label
+        score = self.evaluation_category_scores[label_index]
+
+        return score
 
     def multi_prompt(
         self,
         prompt: str,
-        temperature: float,
         times: int = -1,
         per_step_timeout: float = 0,
     ) -> List[Step]:
@@ -281,11 +289,7 @@ class TreeOfThoughts:
         """
         return self.provider.prompt(prompt, self.temperature)
 
-    @retry(tries=3)
-    def evaluate(self, branch: Step) -> float:
-        pass
-
-    def execute(self, prompt: str) -> Step:
+    def execute(self, task: str) -> Step:
         """
         execute runs the tree of thoughts engine
         as configured, producing (hopefully) a
@@ -295,7 +299,7 @@ class TreeOfThoughts:
         stop = False
         started_at = time()
 
-        root_thought = Step(prompt)
+        root_thought = Step()
         parent_thought = root_thought
         current_thought = None
 
@@ -326,9 +330,6 @@ class TreeOfThoughts:
         return root_thought
 
 
-# Execute process
-
-# 1 - for targe prompt, generate N possible answers
 CSS = """
 #wrapper {
     margin: 0 auto;
