@@ -111,6 +111,15 @@ Vagrant.configure("2") do |config|
         echo "    source /home/vagrant/ros_ws/.env" >> /home/vagrant/.bashrc
         echo "fi" >> /home/vagrant/.bashrc
 
+        # Install the TurtleBot4 packages
+        sudo apt-get install -y \
+        ros-humble-turtlebot4-description \
+        ros-humble-turtlebot4-msgs \
+        ros-humble-turtlebot4-navigation \
+        ros-humble-turtlebot4-node \
+        ros-humble-turtlebot4-simulator
+
+
     SHELL
 
   end
