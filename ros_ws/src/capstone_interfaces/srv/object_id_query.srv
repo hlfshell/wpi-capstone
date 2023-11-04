@@ -1,0 +1,9 @@
+int8 object_id
+---
+int8 id
+string description
+string location
+float32 x
+float32 y
+string task_when_seen
+time time_seen
