@@ -14,8 +14,10 @@ def extract_request(verbose_request):
     llm = OpenAI(model_name="text-davinci-003", temperature=0)
 
     context=""" You are an expert in grammatical structures and will be given a sentence from which 
-        you should extract what exactly is being requested. It will likely be the direct object in a question.  
-        Reply with just the object and its modifiers.  For example replay with "can of soda" rahther than just "soda"
+        you should extract what exactly is being requested. It will likely be the direct object in a 
+        request or question or the subject of a statement.   
+        Reply with just the object and its modifiers.  
+        For example replay with "can of soda" rahther than just "soda"
         Do not be verbose."""
     
     system_message_prompt=SystemMessagePromptTemplate.from_template(context)

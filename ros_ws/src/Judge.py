@@ -14,20 +14,22 @@ api_key=os.environ["OPENAI_API_KEY"]
 def Judge(request):
     llm = OpenAI(model_name="text-davinci-003", temperature=0)
 
-    '''context="""An agent is attempting to get a specific item requested by a human user.  
-        The human user is sometimes vague and the agent is trying to clarify specifically what the 
-        human user wants.  You are an AI helping the agent to judge if the item requested is specific enough to search
-        for.  You are also an expert in grammatical structures and will be given a sentence from which 
-        you should extract what exactly is being requested. It will likely be the direct object in a request or question.  
-        If the response has the word "anything" or "something" in it, it is not specific enough.
-        If object is specific enough to search for, respond  with the object and its modifiers, otherwise respond with "no".  Do not be verbose. 
-        For example, if the request is " I woul dlike a can of soda", reply with "can of soda" rather than just "soda" or "can" """
-    '''
     context="""An agent is attempting to get a specific item requested by a human user.  
+        The human user is sometimes vague and the agent is trying to clarify specifically what the 
+        human user wants.  You are an AI helping the agent to judge if the item 
+        requested is specific enough to search for.  
+        You are also an expert in grammatical structures and will be given a sentence from which 
+        you should extract what exactly is being requested. It will likely be the direct object in a request 
+        or question or the subject of a statement.  
+        If the response has the word "anything" or "something" in it, it is not specific enough.
+        If the object is specific enough to search for, respond  with "yes", otherwise respond with "no".  Do not be verbose. 
+        """
+    
+    '''context="""An agent is attempting to get a specific item requested by a human user.  
         The human user is sometimes vague and the AI is trying to clarify specifically what the 
         human user wants.  You are an AI helping the agent to judge if the item responded is specific enough to search
         for.  If it is specific enough to search for, respond  with "yes", otherwise respond with "no".  Do not be verbose."""
-    
+    '''
     '''context="""An agent is attempting to get a specific item requested by a human user.  
         The human user is sometimes vague and the AI is trying to clarify specifically what the 
         human user wants.  You are an AI helping the agent to judge if the item responded is specigic enough to search

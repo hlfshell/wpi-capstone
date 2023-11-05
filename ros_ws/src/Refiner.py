@@ -27,15 +27,17 @@ def Refine(request):
     attempts_to_understand=0
     user_msg="User: " + request
 
+    print (user_msg)
+
     #If response sufficiently refined 
     #break out and pass to publish
     judgement=Judge(request).lower()
     if judgement.lower()=="yes":
         #pubish response
         target=extract_request(request)
+
         print("The target is ",target)
         unknown_request=False
-    
     while unknown_request:
         #add user request or claification to the conversation
         context.append(HumanMessage(content=user_msg))
@@ -47,13 +49,17 @@ def Refine(request):
         request=input("?")
         #If response sufficiently refined 
         #break out and pass to publish
-        if request.lower()=="yes" or Judge(response.content.lower())=="yes":
-            #identify simple target
+        judgement=Judge(request).lower()
+        if request.lower()=="yes":
             target=extract_request(response.content)
+            print("The target is ",target)
+            break
+        if judgement=="yes":
+            #identify simple target
+            target=extract_request(request)
             #pubish target
             print("The target is ",target)
             break
-
         #if there have been too many cycles restart the request
         if attempts_to_understand==5:
             print("I'm sorry i dont inderstand.  Could we start over?")
@@ -65,10 +71,10 @@ def Refine(request):
 if __name__=="__main__":
     #request="Please get me a bottle of water"
     #request="Please get me a something cold to drink"
-    request="I'm thirsty"
+    #request="I'm thirsty"
 
     #request="Please bring me my comb"
-    #request="please get me something to fix my hair"
+    request="please get me something to fix my hair"
     #request="My hair is messy"
 
     #request="Please bring me the TV remote"
