@@ -103,7 +103,7 @@ CMD ["bash"]
 # 4. Installing TurtleBot4
 # ==========================================
 # Update package list and install Turtlebot4 packages
-RUN apt-get update && apt-get install -y \
+RUN apt update && apt install -y \
     ros-humble-turtlebot4-description \
     ros-humble-turtlebot4-msgs \
     ros-humble-turtlebot4-navigation \

@@ -112,7 +112,7 @@ Vagrant.configure("2") do |config|
         echo "fi" >> /home/vagrant/.bashrc
 
         # Install the TurtleBot4 packages
-        sudo apt-get install -y \
+        apt install -y \
         ros-humble-turtlebot4-description \
         ros-humble-turtlebot4-msgs \
         ros-humble-turtlebot4-navigation \
