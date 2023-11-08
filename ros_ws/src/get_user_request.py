@@ -1,7 +1,6 @@
 import os
 import langchain
-#from Judge import Judge
-#from Extracter import extract_request
+
 from langchain.llms import OpenAI
 from langchain import PromptTemplate
 from langchain import schema
@@ -10,17 +9,19 @@ from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 api_key=os.environ["OPENAI_API_KEY"]
+model_to_use="gpt-4-0613"
+#model_to_use="text-davinci-003"
 
 
 def Refine(request):
-    chat = ChatOpenAI()
+    chat = ChatOpenAI(model_name=model_to_use)
 
     sys_msg=SystemMessage(content="""You are a home assistant robot that can retrieve objects for your user. 
-        You are looking for a single item to search for.  You should ask clarifying 
-        questions of your user, only if needed, until you have a sufficient description of 
-        a specific item to search for and retrieve.
-        If the item seems vague or general or the user isnt sure, make a suggestion.
-        If the user requests something or anything, you shouold make a suggestion that is consistent
+        You are looking for a single item to search for.  
+        You should ask clarifying questions of your user, only if needed, until you have a 
+        sufficient description of a specific item to search for and retrieve.
+        If the item seems vague or general or the user isn't sure, make a suggestion.
+        If the user requests "something" or "anything", you shouold make a suggestion that is consistent
         with the rest of the request.  For example, if the user requests please bring me anything cold,
         you might suggest "would you like a glass of water?" """)
    
@@ -48,7 +49,7 @@ def Refine(request):
         attempts_to_understand+=1
 
         #seek input from user 
-        request=input("?")
+        request=input("User:")
         #If response sufficiently refined 
         #break out and pass to publish
         judgement=Judge(request).lower()
@@ -69,9 +70,11 @@ def Refine(request):
         context.append(response)
 
 def Judge(request):
-    llm = OpenAI(model_name="text-davinci-003", temperature=0)
+    #llm = OpenAI(model_name=model_to_use, temperature=0)
+    llm = ChatOpenAI(model_name=model_to_use,temperature=0)
 
     context="""An agent is attempting to get a specific item requested by a human user.  
+        It should be an object found in a house or apartment.
         The human user is sometimes vague and the agent is trying to clarify specifically what the 
         human user wants.  You are an AI helping the agent to judge if the item 
         requested is specific enough to search for.  
@@ -82,21 +85,9 @@ def Judge(request):
         If the object is specific enough to search for, respond  with "yes", otherwise respond with "no".  Do not be verbose. 
         """
     
-    '''context="""An agent is attempting to get a specific item requested by a human user.  
-        The human user is sometimes vague and the AI is trying to clarify specifically what the 
-        human user wants.  You are an AI helping the agent to judge if the item responded is specific enough to search
-        for.  If it is specific enough to search for, respond  with "yes", otherwise respond with "no".  Do not be verbose."""
-    '''
-    '''context="""An agent is attempting to get a specific item requested by a human user.  
-        The human user is sometimes vague and the AI is trying to clarify specifically what the 
-        human user wants.  You are an AI helping the agent to judge if the item responded is specigic enough to search
-        for.  If it is specific enough to search for, respond  with yes, otherwise respond with no.  Do not be verbose."""
-   '''
-    
     system_message_prompt=SystemMessagePromptTemplate.from_template(context)
     human_template=f"Am I specifically requesting an object, if so what? : {request}"
     human_message_prompt=HumanMessagePromptTemplate.from_template(human_template)
-    
 
     chat_prompt=ChatPromptTemplate.from_messages([system_message_prompt,human_message_prompt])
     chain=LLMChain(llm=llm, prompt=chat_prompt)
@@ -105,13 +96,15 @@ def Judge(request):
     return response
 
 def extract_request(verbose_request):
-    llm = OpenAI(model_name="text-davinci-003", temperature=0)
+    #llm = OpenAI(model_name=model_to_use, temperature=0)
+    llm = ChatOpenAI(model_name=model_to_use,temperature=0)
 
     context=""" You are an expert in grammatical structures and will be given a sentence from which 
         you should extract what exactly is being requested. It will likely be the direct object in a 
-        request or question or the subject of a statement.   
+        request or question or the subject of a statement.
+        It should also be an object commonly found in a house or apartment.   
         Reply with just the object and its modifiers.  
-        For example replay with "can of soda" rahther than just "soda"
+        For example reply with "can of soda" rahther than just "soda"
         Do not be verbose."""
     
     system_message_prompt=SystemMessagePromptTemplate.from_template(context)
