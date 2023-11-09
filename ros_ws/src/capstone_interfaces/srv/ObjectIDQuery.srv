@@ -1,0 +1,3 @@
+int8 object_id
+---
+StateObject[] states_of_objects
