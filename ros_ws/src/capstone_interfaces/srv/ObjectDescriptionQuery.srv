@@ -1,3 +1,3 @@
 string object_description
 ---
-StateObject state
+StateObject[] states_of_objects
