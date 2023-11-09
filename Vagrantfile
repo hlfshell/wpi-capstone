@@ -119,7 +119,13 @@ Vagrant.configure("2") do |config|
         ros-humble-turtlebot4-node \
         ros-humble-turtlebot4-simulator
 
+        # Install the TurtleBot3 packages
+        apt install -y ros-humble-turtlebot3 \
+        ros-humble-turtlebot3-gazebo
 
+        # Set the Turtlebot3 model to automatically load
+        echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc
+        
     SHELL
 
   end

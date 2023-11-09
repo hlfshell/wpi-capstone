@@ -108,5 +108,14 @@ RUN apt update && apt install -y \
     ros-humble-turtlebot4-msgs \
     ros-humble-turtlebot4-navigation \
     ros-humble-turtlebot4-node \
-    ros-humble-turtlebot4-simulator \
-    && rm -rf /var/lib/apt/lists/* 
+    ros-humble-turtlebot4-simulator/*
+
+# ==========================================
+# 5. Installing TurtleBot3
+# ==========================================
+RUN apt update && apt install -y\
+    ros-humble-turtlebot3 \
+    ros-humble-turtlebot3-gazebo/*
+
+# Set the Turtlebot3 model to automatically load
+RUN echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc 
