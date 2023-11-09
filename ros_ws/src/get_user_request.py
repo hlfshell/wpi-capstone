@@ -1,19 +1,19 @@
 import os
+
 import langchain
-
-from langchain.llms import OpenAI
-from langchain import PromptTemplate
-from langchain import schema
-from langchain.prompts import (ChatPromptTemplate,PromptTemplate,SystemMessagePromptTemplate, HumanMessagePromptTemplate)
-from langchain.chat_models import ChatOpenAI
+from langchain import PromptTemplate, schema
 from langchain.chains import LLMChain
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
-api_key=os.environ["OPENAI_API_KEY"]
-model_to_use="gpt-4-0613"
-#model_to_use="text-davinci-003"
+from langchain.chat_models import ChatOpenAI
+from langchain.llms import OpenAI
+from langchain.prompts import (ChatPromptTemplate, HumanMessagePromptTemplate,
+                               PromptTemplate, SystemMessagePromptTemplate)
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
+
+API_KEY=os.environ["OPENAI_API_KEY"]
+model_to_use="gpt-4-turbo"
 
 
-def Refine(request):
+def refine(request:str):
     chat = ChatOpenAI(model_name=model_to_use)
 
     sys_msg=SystemMessage(content="""You are a home assistant robot that can retrieve objects for your user. 
@@ -34,7 +34,7 @@ def Refine(request):
 
     #If response sufficiently refined 
     #break out and pass to publish
-    judgement=Judge(request).lower()
+    judgement=judge(request).lower()
     if judgement.lower()=="yes":
         #pubish response
         target=extract_request(request)
@@ -52,8 +52,8 @@ def Refine(request):
         request=input("User:")
         #If response sufficiently refined 
         #break out and pass to publish
-        judgement=Judge(request).lower()
-        if request.lower()=="yes":
+        judgement=judge(request).lower()
+        if request.strip().lower()=="yes":
             target=extract_request(response.content)
             print("The target is ",target)
             break
@@ -69,8 +69,8 @@ def Refine(request):
             break
         context.append(response)
 
-def Judge(request):
-    #llm = OpenAI(model_name=model_to_use, temperature=0)
+def judge(request):
+
     llm = ChatOpenAI(model_name=model_to_use,temperature=0)
 
     context="""An agent is attempting to get a specific item requested by a human user.  
@@ -138,4 +138,4 @@ if __name__=="__main__":
     #request="I'd like to turn on the TV"
     request="Id like to watch something"
 
-    print(Refine(request))
+    print(refine(request))
