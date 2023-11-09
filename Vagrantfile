@@ -113,15 +113,15 @@ Vagrant.configure("2") do |config|
 
         # Install the TurtleBot4 packages
         apt install -y \
-        ros-humble-turtlebot4-description \
-        ros-humble-turtlebot4-msgs \
-        ros-humble-turtlebot4-navigation \
-        ros-humble-turtlebot4-node \
-        ros-humble-turtlebot4-simulator
+          ros-humble-turtlebot4-description \
+          ros-humble-turtlebot4-msgs \
+          ros-humble-turtlebot4-navigation \
+          ros-humble-turtlebot4-node \
+          ros-humble-turtlebot4-simulator
 
         # Install the TurtleBot3 packages
         apt install -y ros-humble-turtlebot3 \
-        ros-humble-turtlebot3-gazebo
+          ros-humble-turtlebot3-gazebo
 
         # Set the Turtlebot3 model to automatically load
         echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc
