@@ -1,7 +1,7 @@
 .code-server/*
 .vagrant/*
 ros_ws/.env
-
+*/.DS_Store
 
 ### ROS2
 
