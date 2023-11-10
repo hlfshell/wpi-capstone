@@ -20,22 +20,9 @@ class LLM_Object:
         self.temp=temperature
         self.chat=ChatOpenAI(model_name=MODEL_TO_USE)
         self.system_message=SystemMessage(content=self.context)
- 
 
 def refine(request:str):
-    #chat = ChatOpenAI(model_name=MODEL_TO_USE)
-    
     refiner=LLM_Object("ros_ws/src/refiner_context.txt",0)
-    '''
-    sys_msg=SystemMessage(content="""You are a home assistant robot that can retrieve objects for your user. 
-        You are looking for a single item to search for.  
-        You should ask clarifying questions of your user, only if needed, until you have a 
-        sufficient description of a specific item to search for and retrieve.
-        If the item seems vague or general or the user isn't sure, make a suggestion.
-        If the user requests "something" or "anything", you shouold make a suggestion that is consistent
-        with the rest of the request.  For example, if the user requests please bring me anything cold,
-        you might suggest "would you like a glass of water?" """)
-        '''
    
     unknown_request=True
     #context=[sys_msg]
@@ -86,21 +73,8 @@ def refine(request:str):
         context.append(response)
 
 def judge(request):
-
-    #llm = ChatOpenAI(model_name=MODEL_TO_USE,temperature=0)
     judger=LLM_Object("ros_ws/src/judge_context.txt",0)
 
-    ''' context="""An agent is attempting to get a specific item requested by a human user.  
-        It should be an object found in a house or apartment.
-        The human user is sometimes vague and the agent is trying to clarify specifically what the 
-        human user wants.  You are an AI helping the agent to judge if the item 
-        requested is specific enough to search for.  
-        You are also an expert in grammatical structures and will be given a sentence from which 
-        you should extract what exactly is being requested. It will likely be the direct object in a request 
-        or question or the subject of a statement.  
-        If the response has the word "anything" or "something" in it, it is not specific enough.
-        If the object is specific enough to search for, respond  with "yes", otherwise respond with "no".  Do not be verbose. 
-        """  '''
     system_message_prompt=SystemMessagePromptTemplate.from_template(judger.context)
     human_template=f"Am I specifically requesting an object, if so what? : {request}"
     human_message_prompt=HumanMessagePromptTemplate.from_template(human_template)
@@ -112,18 +86,8 @@ def judge(request):
     return response
 
 def extract_request(verbose_request):
-    #llm = ChatOpenAI(model_name=MODEL_TO_USE,temperature=0)
-
     extractor=LLM_Object("ros_ws/src/extractor_context.txt",0)
 
-    '''context=""" You are an expert in grammatical structures and will be given a sentence from which 
-        you should extract what exactly is being requested. It will likely be the direct object in a 
-        request or question or the subject of a statement.
-        It should also be an object commonly found in a house or apartment.   
-        Reply with just the object and its modifiers.  
-        For example reply with "can of soda" rahther than just "soda"
-        Do not be verbose.""" '''
-    
     system_message_prompt=SystemMessagePromptTemplate.from_template(extractor.context)
     human_template=f"Isolate what I am requesting: {verbose_request}"
     human_message_prompt=HumanMessagePromptTemplate.from_template(human_template)
