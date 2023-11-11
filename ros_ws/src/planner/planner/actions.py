@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod, abstractstaticmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Lock
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # Status code constants for actions
 READY = 0
@@ -58,12 +58,18 @@ class Action(ABC):
 
         self.error: Optional[Exception] = None
 
+        self._return_lock = Lock()
+        self._return_result: Any = None
+
     @abstractmethod
-    def __execute(self):
+    def __execute(self) -> Any:
         """
         __execute is the implementing class's method for executing the
         action. It is expected that the implementing class will handle
         status checking for cancellation flags during the process.
+
+        It can return any result; this result is saved to the action
+        and can be queried with .get_result().
         """
         pass
 
@@ -78,7 +84,8 @@ class Action(ABC):
             self.__status = EXECUTING
 
         try:
-            self.__execute()
+            result = self.__execute()
+            self.set_result(result)
         except Exception as e:
             self._set_error(e)
             raise e
@@ -142,6 +149,20 @@ class Action(ABC):
     def _set_error(self, e: Exception):
         self.error = str(e)
         self.set_status(ERROR)
+
+    def set_result(self, results: Any):
+        """
+        set_result will thread-safe set the result of the action
+        """
+        with self._return_lock:
+            self._return_result = results
+
+    def get_result(self) -> Any:
+        """
+        get_result will thread-safe return the result of the action
+        """
+        with self._return_lock:
+            return self._return_result
 
     def __str__(self) -> str:
         # Format the parameters
