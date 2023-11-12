@@ -62,7 +62,7 @@ class Action(ABC):
         self._return_result: Any = None
 
     @abstractmethod
-    def __execute(self) -> Any:
+    def _execute(self) -> Any:
         """
         __execute is the implementing class's method for executing the
         action. It is expected that the implementing class will handle
@@ -84,7 +84,7 @@ class Action(ABC):
             self.__status = EXECUTING
 
         try:
-            result = self.__execute()
+            result = self._execute()
             self.set_result(result)
         except Exception as e:
             self._set_error(e)
@@ -95,7 +95,7 @@ class Action(ABC):
                 self.__status = COMPLETE
 
     @abstractmethod
-    def __cancel(self):
+    def _cancel(self):
         """
         __cancel is the implementing class's method for cancelling
         its action in progress.
@@ -117,18 +117,19 @@ class Action(ABC):
             self.__status = CANCELLING
 
         try:
-            self.__cancel()
+            self._cancel()
             self.set_status(CANCELLED)
         except Exception as e:
             self._set_error(e)
             raise e
 
     @abstractstaticmethod
-    def Parse(raw: List[str]) -> Action:
+    def Create(reason: str, parameters: List[str]) -> Action:
         """
-        Parse must be passed the two lines the LLM generates for
-        the action - its generated reasoning and resulting action
-        call - and return the given Action from the strings.
+        Create is passed the reasoning of the action being created
+        and the ordered parameters inserted. The implementing class
+        must utilize these to initialize and create an Action object
+        for use.
         """
         pass
 
@@ -200,7 +201,9 @@ class ActionPlanParser:
         """
         self.action_classes = action_classes
 
-    def parse_action_lines(self, lines: Tuple[str, str]) -> Tuple[str, str, List[str]]:
+    def parse_action_lines(
+        self, lines: Tuple[str, str]
+    ) -> Tuple[str, str, Dict[str, str]]:
         """
         parse_action_lines - Given a set of two lines from the LLM for
         its reasoning and action call, extract out the reasoning, action
@@ -230,7 +233,54 @@ class ActionPlanParser:
         then return that ActionPlan for each parsed action if
         no issues occur during parsing.
         """
-        pass
+        # First we will remove white space surrounding the text and
+        # then we will remove blank lines that may be spaced between
+        # actions
+        lines = text.strip().split("\n")
+        lines = [line.strip() for line in lines if len(line.strip()) > 0]
+
+        # Now that we've isolated, break our lines into groups. The
+        # expected output is:
+        # # comment for our reasoning
+        # action(parameters)
+        # We need to deal with the comment line missing as well
+        reason_action_combinations: List[Tuple[str, str]] = []
+
+        while len(lines) > 0:
+            reason_action: Tuple[str, str] = ("", "")
+
+            # Check to see if the top line is a commented reason
+            # or an action. Basically - does it start with "#"?
+            reason = ""
+            if lines[0].startswith("#"):
+                reason = lines.pop(0)
+
+            # The next line should be an action line, regardless
+            # if there was a reasoning line or not
+            action = lines.pop(0)
+
+            reason_action = (reason, action)
+            reason_action_combinations.append(reason_action)
+
+        # Now that we have our reason/action combinations, we can
+        # parse them into actions
+        actions: List[Action] = []
+        for reason_action in reason_action_combinations:
+            # Parse the action lines
+            reasoning, action_name, parameters = self.parse_action_lines(reason_action)
+
+            # Check to see if we have an action for this action name
+            if action_name not in self.action_classes:
+                raise UnknownActionException(action_name)
+
+            # Create the action
+            action_class = self.action_classes[action_name]
+            action = action_class.Create(reasoning, parameters)
+
+            actions.append(action)
+
+        # Create and return our action plan
+        return ActionPlan(actions)
 
 
 class ActionPlan:
@@ -268,6 +318,10 @@ class ActionPlan:
         except Exception as e:
             self.error(e)
             raise e
+
+        with self.__status_lock:
+            if self.__status == EXECUTING:
+                self.__status = COMPLETE
 
     def execute_async(self) -> Future:
         """
