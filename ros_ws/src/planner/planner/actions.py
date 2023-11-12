@@ -173,7 +173,11 @@ class Action(ABC):
                 parameters += ", "
             parameters += f"{key}={value}"
 
-        return f"{self.reasoning}\n{self.type}({parameters})"
+        reasoning_string = ""
+        if self.reasoning is not None and len(self.reasoning) > 0:
+            reasoning_string = f"# {self.reasoning}\n"
+
+        return f"{reasoning_string}{self.type}({parameters})"
 
     def __eq__(self, __value: Action) -> bool:
         if __value is None:
@@ -384,7 +388,9 @@ class ActionPlan:
             result += f"Progress: {self.__action_index + 1}/{len(self.actions)}\n"
 
         for action in self.actions:
-            result += f"\t{action}\n"
+            action_string = str(action)
+            for line in action_string.split("\n"):
+                result += f"  |  {line}\n"
 
         return result
 
