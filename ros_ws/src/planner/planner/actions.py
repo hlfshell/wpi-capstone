@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod, abstractstaticmethod
-from concurrent.futures import Future, ThreadPoolExecutor
+import ast
+from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 
 # Status code constants for actions
 READY = 0
@@ -22,17 +22,25 @@ class Action(ABC):
     defined duck-typed manner for easy portability and integration,
     and handling implementation specific details in a single location.
 
-    Action will implement status checking, and internal cancellation.
-    Additional functionality is on the onus for the implementing class.
+    Actions are designed to be initialized, then cloned and utilized
+    at execution time. This is to allow for advanced functionality
+    like asynchronous execution and cancellation and error tracking.
+
+    Implementers of the action interface are expected to implement
+    the following methods:
+
+    _execute() - the actual execution - parameters are variable based
+        on what's needed for the Action
+    _cancel() - a method that handles special cancellation logic for
+        the action. For instance, if you have a long running network
+        call, this would send a signal to kill it. If there is no
+        special logic, just have the function pass.
+    clone() - a method that returns a copy of the action as necessary
     """
 
     def __init__(
         self,
-        type: str,
-        llm_description: str,
-        llm_examples: str,
-        reasoning: str,
-        parameters: Dict[str, str],
+        action_type: str,
     ):
         """
         Creates a new Action object. The type designates the class of
@@ -47,58 +55,70 @@ class Action(ABC):
         """
         super().__init__()
 
-        self.type: str = type
-        self.llm_description: str = llm_description
-        self.llm_examples: str = llm_examples
-        self.parameters: Dict[str, str] = parameters
-        self.reasoning: str = reasoning
+        self.action_type: str = action_type
 
         self.__status_lock = Lock()
         self.__status: int = 0
 
         self.error: Optional[Exception] = None
 
-        self._return_lock = Lock()
-        self._return_result: Any = None
-
     @abstractmethod
-    def _execute(self) -> Any:
+    def _execute(self, *args, **kwargs) -> Any:
         """
-        __execute is the implementing class's method for executing the
-        action. It is expected that the implementing class will handle
-        status checking for cancellation flags during the process.
-
-        It can return any result; this result is saved to the action
-        and can be queried with .get_result().
+        _execute is the actual implementation of the action. It is
+        on the implementing class to handle the logic of the action
+        itself, as well as implement the possibility for cancellation
+        within it.
         """
         pass
 
-    def execute(self):
+    def execute(self, *args, **kwargs) -> Any:
         """
         execute performs the action; handled within the abstract class
         to handle status control during the action.
         """
         with self.__status_lock:
+            # Check first prior to execution to see if we have been
+            # cancelled and should quit out.
+            if self.__status == CANCELLING or self.__status == CANCELLED:
+                raise CancellationTriggeredException()
+            # If we aren't being cancelled but aren't ready, we need
+            # to abort the action
             if self.__status != READY:
-                raise ActionNotReadyException(self.type)
+                raise ActionNotReadyException(self.action_type)
             self.__status = EXECUTING
 
         try:
-            result = self._execute()
-            self.set_result(result)
+            result: Any = self._execute(*args, **kwargs)
+
+            with self.__status_lock:
+                if self.__status == EXECUTING:
+                    self.__status = COMPLETE
+
+            return result
         except Exception as e:
             self._set_error(e)
             raise e
 
+    def _cancel_check(self):
+        """
+        _cancel_check is a helper method for the implementing class
+        that checks whether or not if cancellation has been called
+        for. If so, it will raise a CancellationTriggeredException.
+
+        If triggered within the generated code, it will result in
+        cancellation of the exec without ending the parent process.
+        """
         with self.__status_lock:
-            if self.__status == EXECUTING:
-                self.__status = COMPLETE
+            if self.__status == CANCELLING:
+                raise CancellationTriggeredException()
 
     @abstractmethod
     def _cancel(self):
         """
-        __cancel is the implementing class's method for cancelling
-        its action in progress.
+        _cancel is the implementing class's method for cancelling
+        its action in progress. It is on the implementing class to
+        check when convenient for and trigger cancellation.
         """
         pass
 
@@ -107,29 +127,28 @@ class Action(ABC):
         cancel will trigger the action to cancel, if possible. It will
         be blocking until the action is cancelled or errors out.
         Internally it will set the status to CANCELLING, and then call
-        the implementing class's __cancel method.
+        the implementing class's _cancel method.
         """
         with self.__status_lock:
             if self.__status != EXECUTING:
                 raise ActionNotCancellableException(
-                    self.type, "Action not currently executing"
+                    self.action_type, "Action not currently executing"
                 )
             self.__status = CANCELLING
 
         try:
-            self._cancel()
+            self.__cancel()
             self.set_status(CANCELLED)
         except Exception as e:
             self._set_error(e)
             raise e
 
-    @abstractstaticmethod
-    def Create(reason: str, parameters: List[str]) -> Action:
+    @abstractmethod
+    def clone(self) -> Action:
         """
-        Create is passed the reasoning of the action being created
-        and the ordered parameters inserted. The implementing class
-        must utilize these to initialize and create an Action object
-        for use.
+        clone returns a copy of the current action, complete with
+        configuration. It is on the implementing class to handle
+        proper instantiation and cloning.
         """
         pass
 
@@ -147,24 +166,6 @@ class Action(ABC):
         with self.__status_lock:
             return self.__status
 
-    def _set_error(self, e: Exception):
-        self.error = str(e)
-        self.set_status(ERROR)
-
-    def set_result(self, results: Any):
-        """
-        set_result will thread-safe set the result of the action
-        """
-        with self._return_lock:
-            self._return_result = results
-
-    def get_result(self) -> Any:
-        """
-        get_result will thread-safe return the result of the action
-        """
-        with self._return_lock:
-            return self._return_result
-
     def __str__(self) -> str:
         # Format the parameters
         parameters = ""
@@ -173,212 +174,144 @@ class Action(ABC):
                 parameters += ", "
             parameters += f"{key}={value}"
 
-        reasoning_string = ""
-        if self.reasoning is not None and len(self.reasoning) > 0:
-            reasoning_string = f"# {self.reasoning}\n"
-
-        return f"{reasoning_string}{self.type}({parameters})"
+        return f"{self.action_type}({parameters})"
 
     def __eq__(self, __value: Action) -> bool:
         if __value is None:
             return False
         return (
-            self.type == __value.type
+            self.action_type == __value.action_type
             and self.parameters == __value.parameters
             and self.reasoning == __value.reasoning
         )
 
 
-class ActionPlanParser:
+class ActionPlanner:
     """
-    ActionPlanParser is a parsing client that, given a text blurb from
-    an LLM, and a set of possible actions we'd expect from the LLM,
-    will extract the set of actions, their reasoning, and parameters,
-    and finally return a list of Action objects as specified.
-    """
+    ActionPlanner is a tool that accepts a Dict of Actions with
+    associated function names as a key. It can then parse pythonic
+    code where calls to the specified function names will clone
+    and trigger the associated action.
 
-    def __init__(self, action_classes: Dict[str, Callable]):
-        """
-        Creates a new ActionPlanParser object. The action_classes
-        is a dict of the action type to the class object itself
-        for parsing calls.
-        """
-        self.action_classes = action_classes
+    The ActionPlanner allows easy tracking of the status of the
+    plan, allow cancelling it, and handles syntax checking as well.
 
-    def parse_action_lines(
-        self, lines: Tuple[str, str]
-    ) -> Tuple[str, str, Dict[str, str]]:
-        """
-        parse_action_lines - Given a set of two lines from the LLM for
-        its reasoning and action call, extract out the reasoning, action
-        name, and list of passed parameters for additional processing.
-        """
-        # Extract the reasoning and action call
-        reasoning = lines[0]
-        action_call = lines[1]
-
-        # The reasoning is preceded by "# " and may have additional spacing;
-        # clear this up
-        reasoning = reasoning.replace("# ", "").strip()
-
-        # Extract the action name
-        action_name = action_call.split("(")[0]
-
-        # Extract the parameters
-        parameters = action_call.split("(")[1].split(")")[0].split(",")
-        parameters = [parameter.strip() for parameter in parameters]
-
-        return (reasoning, action_name, parameters)
-
-    def parse(self, text: str) -> ActionPlan:
-        """
-        parse will accept a block of text and parse from it a list
-        of ordered actions, their reasoning, and parameters. It will
-        then return that ActionPlan for each parsed action if
-        no issues occur during parsing.
-        """
-        # First we will remove white space surrounding the text and
-        # then we will remove blank lines that may be spaced between
-        # actions
-        lines = text.strip().split("\n")
-        lines = [line.strip() for line in lines if len(line.strip()) > 0]
-
-        # Now that we've isolated, break our lines into groups. The
-        # expected output is:
-        # # comment for our reasoning
-        # action(parameters)
-        # We need to deal with the comment line missing as well
-        reason_action_combinations: List[Tuple[str, str]] = []
-
-        while len(lines) > 0:
-            reason_action: Tuple[str, str] = ("", "")
-
-            # Check to see if the top line is a commented reason
-            # or an action. Basically - does it start with "#"?
-            reason = ""
-            if lines[0].startswith("#"):
-                reason = lines.pop(0)
-
-            # The next line should be an action line, regardless
-            # if there was a reasoning line or not
-            action = lines.pop(0)
-
-            reason_action = (reason, action)
-            reason_action_combinations.append(reason_action)
-
-        # Now that we have our reason/action combinations, we can
-        # parse them into actions
-        actions: List[Action] = []
-        for reason_action in reason_action_combinations:
-            # Parse the action lines
-            reasoning, action_name, parameters = self.parse_action_lines(reason_action)
-
-            # Check to see if we have an action for this action name
-            if action_name not in self.action_classes:
-                raise UnknownActionException(action_name)
-
-            # Create the action
-            action_class = self.action_classes[action_name]
-            action = action_class.Create(reasoning, parameters)
-
-            actions.append(action)
-
-        # Create and return our action plan
-        return ActionPlan(actions)
-
-
-class ActionPlan:
-    """
-    ActionPlan is a tool for managing the execution of a set of
-    ordered actions.
+    A single planner can work with multiple generated pythonic plans.
     """
 
-    def __init__(self, actions: List[Action]):
+    def __init__(self, actions: Dict[str, Action]):
         """
         Creates a new action plan instance with the provided set of
         actions, instantiating to a READY status.
         """
         self.actions = actions
-        self.__status = READY
-        self.__action_index = -1
 
-        self.__status_lock = Lock()
-        self.error: Optional[Exception] = None
+        self.__action_lock = Lock()
+        self.__current_action: Optional[Action] = None
 
-    def execute(self):
+    def code_check(self, code: str):
+        """
+        code_check will check the provided code for syntax errors
+        that could trigger prior to execution. It checks via ast for
+        tokenization errors and finally compiles the code to check for
+        additional errors. It is not perfect given that Python is a
+        runtime language.
+        """
+        try:
+            ast.parse(code)
+            compile(code, "<string>", "exec")
+        except Exception as e:
+            raise CouldNotParseActionPlanException(e)
+
+    def __action_wrapper(self, function_name, *args, **kwargs) -> Callable:
+        """
+        __action_wrapper generates the action clone for the specified action,
+        saves it as the current action, and then executes it, returning the
+        resulting outcome.
+        """
+        # First we create a new action of the specific type
+        action = self.actions[function_name].clone()
+
+        # Set this as our target action
+        with self.__action_lock:
+            self.__current_action = action
+
+        # Execute the action
+        return action.execute(*args, **kwargs)
+
+    def __generate_lambdas(self) -> Dict[str, Callable]:
+        """
+        __generate_lambdas creates a set of lambda functions to be passed
+        into the code that wraps it with __action_wrapper, where the action
+        object is cloned, set as the current object for tracking and
+        cancellation, and then executed as called.
+        """
+        lambdas: Dict[str, Callable] = {}
+        for function_name, action in self.actions.items():
+            lambdas[function_name] = lambda *args, **kwargs: self.__action_wrapper(
+                function_name, *args, **kwargs
+            )
+
+        return lambdas
+
+    def execute(self, code: str):
         """
         execute will begin executing the plan, blocking until the
         plan is complete or errors out.
         """
-        with self.__status_lock:
-            if self.__status != READY:
-                raise ActionPlanNotReadyException()
-            self.__status = EXECUTING
+        # First we need to check the syntax prior to executing
+        self.code_check(code)
 
+        # If we reach this point, the code is fine and can continue and
+        # attempt to execute the code as written
         try:
-            for index, action in enumerate(self.actions):
-                self._set_index(index)
-                action.execute()
+            # Create a series of lambdas that create new Actions
+            # when a given action is generated
+            globals = self.__generate_lambdas()
+            locals = {}
+            exec(code, globals, locals)
+
+        except CancellationTriggeredException:
+            # If the cancellation is triggered then we can simply
+            # return at this point - there is no additional work
+            # to do.
+            return
+
         except Exception as e:
-            self.error(e)
+            # Record the error and raise it
+            self.__set_error(e)
             raise e
-
-        with self.__status_lock:
-            if self.__status == EXECUTING:
-                self.__status = COMPLETE
-
-    def execute_async(self) -> Future:
-        """
-        execute_async will begin executing the plan, returning
-        immediately. The plan will execute in the background, and
-        the caller can check the status of the plan to determine
-        when it is complete.
-        """
-        with ThreadPoolExecutor() as executor:
-            return executor.submit(self.execute)
 
     def cancel(self):
         """
         cancel will trigger the plan to cancel, if possible. It will
         be blocking until the plan is cancelled or errors out.
         """
-        with self.__status_lock:
-            if self.__status != EXECUTING:
-                raise ActionPlanNotCancellableException("Plan is not EXECUTING")
-            self.__status = CANCELLING
-
         try:
-            for action in self.actions:
-                action.cancel()
-            self.set_status(CANCELLED)
+            with self.__action_lock:
+                if self.__current_action is None:
+                    return
+                else:
+                    self.__current_action.cancel()
         except Exception as e:
-            self._set_error(e)
+            self.__set_error(e)
             raise e
 
-    def set_status(self, status: int):
+    def get_current_action(self) -> Optional[Action]:
         """
-        set_status will thread-safe change the status of the plan
+        get_current_action will return the current action being
+        executed, if any.
         """
-        with self.__status_lock:
-            self.__status = status
+        with self.__action_lock:
+            return self.__current_action
 
-    def get_status(self) -> int:
-        """
-        get_status will thread-safe return the status of the plan
-        """
-        with self.__status_lock:
-            return self.__status
-
-    def _set_error(self, e: Exception):
+    def __set_error(self, e: Exception):
         self.error = e
-        self.set_status(ERROR)
+        self.__set_status(ERROR)
 
-    def _set_index(self, index: int):
-        """
-        _set_index sets the targeted index for status tracking
-        """
-        with self.__status_lock:
-            self.__action_index = index
+    def get_error(self) -> Optional[Exception]:
+        with self.__error_lock:
+            return self.error
 
     def __str__(self) -> str:
         result = "Action Plan:\n"
@@ -405,21 +338,11 @@ class ActionNotCancellableException(Exception):
         super().__init__(f"Action {type} is not executing: {reason}")
 
 
-class ActionPlanNotReadyException(Exception):
-    def __init__(self):
-        super().__init__(f"Action Plan is not ready to be executed")
-
-
-class ActionPlanNotCancellableException(Exception):
-    def __init__(self, reason: str):
-        super().__init__(f"Action Plan is not executing: {reason}")
-
-
 class CouldNotParseActionPlanException(Exception):
     def __init__(self, e: Exception):
         super().__init__(f"Could not parse action plan: {e}")
 
 
-class UnknownActionException(Exception):
-    def __init__(self, type: str):
-        super().__init__(f"Unknown action type: {type}")
+class CancellationTriggeredException(Exception):
+    def __init__(self):
+        super().__init__(f"Acton execution was cancelled")
