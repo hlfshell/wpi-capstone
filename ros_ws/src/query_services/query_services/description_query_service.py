@@ -1,6 +1,8 @@
 from capstone_interfaces.srv import ObjectDescriptionQuery, ObjectIDQuery
 from capstone_interfaces.msg import StateObject
-# import database_functions
+from query_services import database_functions
+
+# from ros_ws.src.query_services import database_functions
 import sqlite3
 
 import rclpy
@@ -12,45 +14,65 @@ class DescriptionQueryService(Node):
 
     def __init__(self):
         super().__init__('description_query_service')
-        conn = create_connection()
+        self.conn = database_functions.create_connection(r"state_db.db")
         self.srv = self.create_service(ObjectDescriptionQuery, 'object_description_query', self.object_query)
 
-    def object_query(self, description: str, state_list: list[StateObject]) -> list[StateObject]: # is this accurate? should output be only on inside or outside of parentheses?
+    def object_query(self, description: str, response: list[StateObject]) -> list[StateObject]:
         """
-        Query objects by description
-        : param description
-        :return: all 
-        """
-        conn = create_connection()
+        Query objects by description, recieves description, queries db, and resturns a list of state objects to the service
+        """   
 
         # searches SQLite objects table for the description 
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM objects WHERE description=?",(description,))
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM objects WHERE description=?",(description.object_description,))
         rows = cur.fetchall()        
 
-        # def read_database_rows(rows) -> StateObject[]: state
+        state_list = []
+        curr_state = StateObject()
 
         for row in rows:
-            state_list[row].id = row[0]
-            state_list[row].description = row[1]
-            state_list[row].location = row[2]
-            state_list[row].x = row[3]
-            state_list[row].y = row[4]
-            state_list[row].z = row[5]
-            state_list[row].task_when_seen = row[6]
-            state_list[row].time_seen = row[7] # need to play with datatypes to convert correctly
 
-        self.get_logger().info('Description queried: %d' % (description))
+            curr_state.id = row[0]
+            curr_state.description = row[1]
+            curr_state.location = row[2]
+            curr_state.x = row[3]
+            curr_state.y = row[4]
+            curr_state.z = row[5]
+            curr_state.task_when_seen = row[6]
+            time_str = row[7]
+            s_ms=(time_str.split("(")[1]).split(",")
+            print("s_ms",s_ms)
+            s = int(s_ms[0].split("=")[1])
+            ms = int((s_ms[1].split("=")[1]).strip(")"))
+            print("s",s,"ms",ms)
 
-        return state_list
+            time_obj = builtin_interfaces.msg.Time()
+            time_obj.sec = s
+            time_obj.nanosec = ms
+            curr_state.time_seen = time_obj
+
+            state_list.append(curr_state)
+
+        self.get_logger().info('Description queried: %s' % (description))
+        print("Description Queried: ",description)
+        if rows:
+            print("Object(s): \n",state_list)
+            response.states_of_objects = state_list
+        else:
+            print("No results found")
+            state_list_0 = StateObject()
+            state_list_0.description = "No results found"
+            response.states_of_objects = [state_list_0.description]
+
+        return response
 
 
 def main():
     rclpy.init()
 
-    description_service = DescriptionQueryService()
+    description_query_service = DescriptionQueryService()
 
-    rclpy.spin(description_service)
+    rclpy.spin(description_query_service)
 
     rclpy.shutdown()
 
@@ -58,52 +80,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-
-
-def create_connection():
-    """ create a ddatabase connection to a database that resides in the memory """
-    conn = None
-    try:
-        #conn = sqlite3.connect(':memory:')
-        conn = sqlite3.connect(r'state_db.db')
-        return conn
-    except Error as e:
-        print(e)
-
-    return conn
-
-def create_object_table(conn):
-    """ create a table from the create_table_sql statement
-    :param conn: Connection object
-    :param create_table_sql: a CREATE TABLE statement
-    :return:
-    """
-    sql_create_objects_table = """ CREATE TABLE IF NOT EXISTS objects (
-                                        id integer PRIMARY KEY,
-                                        description text NOT NULL,
-                                        location text NOT NULL,
-                                        x float NOT NULL,
-                                        y float NOT NULL,
-                                        z float NOT NULL,
-                                        task text,
-                                        timestamp text NOT NULL,
-                                    ); """
-    try:
-        c = conn.cursor()
-        c.execute(create_table_sql)
-    except Error as e:
-        print(e)
-
-def create_object(conn, new_object):
-    """
-    Create a new project into the projects table
-    :param conn:
-    :param object:
-    :return: object id
-    """
-    sql = ''' INSERT INTO objects(description,location,x,y,z,task,timestamp)
-              VALUES(?,?,?,?,?,?,?) '''
-    cur = conn.cursor()
-    cur.execute(sql, new_object)
-    conn.commit()
-    return cur.lastrowid

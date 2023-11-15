@@ -21,8 +21,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'service = query_services.description_query_service:main',
-            'client = query_services.description_query_client:main',
+            'description_service = query_services.description_query_service:main',
+            'description_client = query_services.description_query_client:main',
+            
+            'add_object_service = query_services.new_object_service:main',
+            'add_object_client = query_services.new_object_client:main',
 
         ],
     },

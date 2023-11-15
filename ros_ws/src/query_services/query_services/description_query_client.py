@@ -2,7 +2,7 @@ from capstone_interfaces.srv import ObjectDescriptionQuery, ObjectIDQuery
 from capstone_interfaces.msg import StateObject
 import sqlite3
 import sys # for testing at command line
-# import database_functions
+from query_services import database_functions
 
 import rclpy
 import builtin_interfaces
@@ -21,8 +21,7 @@ class DescriptionQueryClient(Node):
     def object_query(self, description: str) -> list[StateObject]:
         """
         Query objects by description
-        : param description
-        :return: all 
+        Takes in description of an object to send service, returns list of StateObjects from service
         """
         self.req.object_description = description
         self.future = self.cli.call_async(self.req)
@@ -35,20 +34,13 @@ def main():
 
     description_client = DescriptionQueryClient()
     response = description_client.object_query(str(sys.argv[1]))
-    for i in len(response):
-        """ i.id
-        i.description
-        i.location
-        i.x
-        i.y
-        i.z
-        i.task_when_seen
-        i.time_seen """
 
-        description_client.get_logger().info(
+    for i in range(len(response.states_of_objects)):
+        searched_object = response.states_of_objects[i]
+        print(
             'Description Searched: %s\nObject:\n  ID: %d\n  Description: %s\n  Location: %s\n  (x,y,z): (%f,%f,%f)\n  Task: %s\n  Time: %s' %
-            (str(sys.argv[1]), response.StateObject[i].id, response.StateObject[i].description, response.StateObject[i].location, 
-            response.StateObject[i].x,response.StateObject[i].y,response.StateObject[i].z, response.StateObject[i].task_when_seen,response.StateObject[i].time_seen))
+            (str(sys.argv[1]), searched_object.id, searched_object.description, searched_object.location, 
+            searched_object.x,searched_object.y,searched_object.z, searched_object.task_when_seen,searched_object.time_seen))
 
     rclpy.spin(description_client)
     description_client.destroy_node()
