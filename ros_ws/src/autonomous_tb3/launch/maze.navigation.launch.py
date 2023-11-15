@@ -3,50 +3,55 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
-from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    launch_file_dir = os.path.join(
+        get_package_share_directory("turtlebot3_gazebo"), "launch"
+    )
+    maze_path = os.path.join(
+        get_package_share_directory("autonomous_tb3"),
+        "worlds",
+        "simple_maze",
+        "model.sdf",
+    )
     config_dir = os.path.join(get_package_share_directory("autonomous_tb3"), "config")
-    launch_file_dir = os.path.join(get_package_share_directory('turtlebot3_gazebo'), 'launch')
-    pkg_gazebo_ros = get_package_share_directory('gazebo_ros')
-
-    maze_path = os.path.join(get_package_share_directory('autonomous_tb3'), 'worlds', 'simple_maze', 'model.sdf')
+    map_file = os.path.join(config_dir, "map_file.yaml")
+    params_file = os.path.join(config_dir, "tb3_nav_params.yaml")
     rviz_config = os.path.join(config_dir, "tb3_nav.rviz")
+    pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
 
-    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
-    x_pose = LaunchConfiguration('x_pose', default='0')
-    y_pose = LaunchConfiguration('y_pose', default='0')
+    use_sim_time = LaunchConfiguration("use_sim_time", default="true")
+    x_pose = LaunchConfiguration("x_pose", default="0.0")
+    y_pose = LaunchConfiguration("y_pose", default="0.0")
 
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(pkg_gazebo_ros, 'launch', 'gzserver.launch.py')
+            os.path.join(pkg_gazebo_ros, "launch", "gzserver.launch.py")
         ),
     )
 
     gzclient_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(pkg_gazebo_ros, 'launch', 'gzclient.launch.py')
+            os.path.join(pkg_gazebo_ros, "launch", "gzclient.launch.py")
         )
     )
 
     robot_state_publisher_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(launch_file_dir, 'robot_state_publisher.launch.py')
+            os.path.join(launch_file_dir, "robot_state_publisher.launch.py")
         ),
-        launch_arguments={'use_sim_time': use_sim_time}.items()
+        launch_arguments={"use_sim_time": use_sim_time}.items(),
     )
 
     spawn_turtlebot_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(launch_file_dir, 'spawn_turtlebot3.launch.py')
+            os.path.join(launch_file_dir, "spawn_turtlebot3.launch.py")
         ),
-        launch_arguments={
-            'x_pose': x_pose,
-            'y_pose': y_pose
-        }.items()
+        launch_arguments={"x_pose": x_pose, "y_pose": y_pose}.items(),
     )
 
     maze_spawner = Node(
@@ -54,27 +59,38 @@ def generate_launch_description():
         output="screen",
         executable="sdf_spawner",
         name="maze_spawner",
-        arguments=[maze_path, "simple_maze", "0.0", "0.0"],
+        arguments=[maze_path, "b", "0.0", "0.0"],
     )
 
-    mapping = IncludeLaunchDescription(
+    # Include this if you're mapping the maze via keyboard
+    # maze_mapping = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(
+    #             get_package_share_directory("slam_toolbox"),
+    #             "launch",
+    #             "online_async_launch.py",
+    #         )
+    #     ),
+    # )
+
+    # Remove this if you're mapping the maze via keyboard
+    maze_nav = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(launch_file_dir, 'mapping.launch.py')
+            [
+                get_package_share_directory("nav2_bringup"),
+                "/launch",
+                "/bringup_launch.py",
+            ]
         ),
-        launch_arguments={
-            'x_pose': x_pose,
-            'y_pose': y_pose
-        }.items()
+        launch_arguments={"map": map_file, "params_file": params_file}.items(),
     )
-
+    
     rviz = Node(
         package="rviz2",
         output="screen",
         executable="rviz2",
         name="rviz2_node",
-        arguments=[
-            "-d", rviz_config
-        ],
+        arguments=["-d", rviz_config],
     )
 
     ld = LaunchDescription()
@@ -85,7 +101,9 @@ def generate_launch_description():
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
     ld.add_action(maze_spawner)
-    ld.add_action(mapping)
+    # ld.add_action(maze_mapping)
     ld.add_action(rviz)
+    ld.add_action(maze_nav)
+    
 
     return ld
