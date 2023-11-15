@@ -3,9 +3,12 @@
 <package format="3">
   <name>Interpreter_package</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="vagrant@todo.todo">vagrant</maintainer>
+  <description>This interacts with User Node to interpret need</description>
+  <maintainer email="rldemont@wpi.edu">vagrant</maintainer>
   <license>TODO: License declaration</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
