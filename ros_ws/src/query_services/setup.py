@@ -23,6 +23,9 @@ setup(
         'console_scripts': [
             'description_service = query_services.description_query_service:main',
             'description_client = query_services.description_query_client:main',
+
+            'id_service = query_services.id_query_service:main',
+            'id_client = query_services.id_query_client:main',
             
             'add_object_service = query_services.new_object_service:main',
             'add_object_client = query_services.new_object_client:main',
