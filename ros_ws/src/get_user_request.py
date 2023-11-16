@@ -13,19 +13,19 @@ OpenAI.api_key=os.environ["OPENAI_API_KEY"]
 MODEL_TO_USE="gpt-4"
 
 class LLM_Object:
-    def __init__(self, context_file: str, temperature:int):
+    def __init__(self, context_file: str, model:str, temperature:int):
         with open(context_file, 'r') as file:
             context= file.read().replace('\n', '')
         self.context=context
         self.temp=temperature
-        self.chat=ChatOpenAI(model_name=MODEL_TO_USE)
+        self.chat=ChatOpenAI(model_name=model)
         self.system_message=SystemMessage(content=self.context)
 
 def refine(request:str):
-    refiner=LLM_Object("ros_ws/src/refiner_context.txt",0)
+    refiner=LLM_Object("ros_ws/src/refiner_context.txt",MODEL_TO_USE,0)
    
     unknown_request=True
-    #context=[sys_msg]
+
     context=[refiner.system_message]
     attempts_to_understand=0
 
@@ -75,8 +75,8 @@ def refine(request:str):
 def judge(request:str)->str:
     #this funtion takes a request and determines if a searchable object is in it
     #returns yes or no
-    
-    judger=LLM_Object("ros_ws/src/judge_context.txt",0)
+
+    judger=LLM_Object("ros_ws/src/judge_context.txt",MODEL_TO_USE, 0)
 
     system_message_prompt=SystemMessagePromptTemplate.from_template(judger.context)
     human_template=f"Am I specifically requesting an object, if so what? : {request}"
@@ -92,7 +92,7 @@ def extract_request(verbose_request:str)->str:
     #this function takes a long request and extracts the target object
     #returning the object and its descriptors
 
-    extractor=LLM_Object("ros_ws/src/extractor_context.txt",0)
+    extractor=LLM_Object("ros_ws/src/extractor_context.txt",MODEL_TO_USE,0)
 
     system_message_prompt=SystemMessagePromptTemplate.from_template(extractor.context)
     human_template=f"Isolate what I am requesting: {verbose_request}"
