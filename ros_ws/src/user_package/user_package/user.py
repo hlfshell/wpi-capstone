@@ -16,7 +16,7 @@ class User_Node():
         self.request_publisher_.publish(request)
 
     def get_question_and_respond(self, question:str):
-        print(question))
+        print(question)
         response=input('?:')
         self.chat_publisher_(response)
     

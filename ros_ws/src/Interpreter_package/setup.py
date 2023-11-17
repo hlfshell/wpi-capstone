@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'Interpreter_package'
+package_name = 'interpreter_package'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'Interpreter = Interpreter_package.Interpreter:main'
+            'interpreter = interpreter_package.interpreter:main'
         ],
     },
 )

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>Interpreter_package</name>
+  <name>interpreter_package</name>
   <version>0.0.0</version>
   <description>This interacts with User Node to interpret need</description>
   <maintainer email="rldemont@wpi.edu">vagrant</maintainer>

@@ -46,7 +46,6 @@ def refine(request:str):
     while unknown_request:
         #add user request or claification to the conversation
         context.append(HumanMessage(content=user_msg))
-        #response=chat(context)
         response=refiner.chat(context)
         print( response.content)
         attempts_to_understand+=1

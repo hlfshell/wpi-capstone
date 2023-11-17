@@ -30,38 +30,40 @@ class LLM_Object:
 class TerpNode(Node):
     def __init__(self):
         super().__init__('interpreter')
+        #define elements
         self.refiner=LLM_Object("ros_ws/src/refiner_context.txt",MODEL_TO_USE,0)
         self.judger=LLM_Object("ros_ws/src/judge_context.txt",MODEL_TO_USE, 0)
         self.extractor=LLM_Object("ros_ws/src/extractor_context.txt",MODEL_TO_USE,0)
         self.unknown_request=True
         self.attempts_to_understand=0
         self.target=""
-
+        # define publishing
         self.target_publisher_=self.create_publisher(String,'target',10)
         self.chat_publisher_=self.create_publisher(String, 'clarifying_question',10)
-
+        #define subscriptions
         self.subscriber_=self.create_subscription(String, 'user_request',self.get_inital_request)
         self.subscriber_=self.create_subscription(String, 'cq_response',self.get_chat_response)
-
 
     def get_initial_request(self, request: String): #callback for subscribing to user initial_request
          #this is the users original/new request
          #separated initial request bc it will redirect all activites and may occur when 
-         #a search has already started.  It also resets the number of attempts at understanding
+         #a search has already started.  It also resets the number of attempts to understand
          #as well as the chat history
 
         user_msg="User: " + request
-        print (user_msg)
+        #this should be logger-print (user_msg)
 
+        #initalize vars for new request
         self.target=""
         self.unknown_request=True
         self.attempts_to_understand=0
-        #check request for clarity
+
+        #check request user request to see if it is clear already
         judgement=judge(self.judger, request)
         if judgement=="yes":
-            #pubish the target from the initial request
+            #extract and pubish the target from the initial request
             self.target=extract_request(self.extractor, request)
-            print("The target is ",self.target)
+            #this should be logger-print("The target is ",self.target)
             self.unknown_request=False
             self.broadcast_target(self.target)
 
@@ -70,21 +72,25 @@ class TerpNode(Node):
             self.ask_clarifying_question(user_msg)
 
     def get_chat_response(self, response: String): #callback for subscribing to user response
-        #check if the response is yes-that means user is confirming your last item
+        #this callback gets the user response to a chat string
+        #check if the response is yes-that means user is confirming your last item,
+        #if so, the last ai message is the target
+
         if response.strip().lower()=="yes":
-            self.target=extract_request(response.content)
+            self.target=extract_request(self.refiner.AIMessage.content)
             self.broadcast_target(self.target)
             # this should be logger-print("The target is ",target)
                     
-        #use judge to see if the item is clear
-        judgement=self.judger(response)
+        #SO if not responding yes, use judge to see if the item is actionable in response
+        judgement=self.judge(self.judger, response)
         if judgement=="yes":
             #identify simple target
-            self.target=extract_request(response)
+            self.target=extract_request(self.extractor, response)
             #pubish target
             self.broadcast_target(self.target)
             # this should be logger-print("The target is ",target)
         
+        #if we've been going round, restart conversation
         elif self.attempts_to_understand==5:
             #reset rolling context
             self.refiner.reset_context()
@@ -92,24 +98,25 @@ class TerpNode(Node):
             #Chat the request to start over
             self.chat_publisher.publish("I'm sorry i dont inderstand.  Could we start over?")
         else:
-            self.rolling_context.append(response)
-
+            #we dont know what the target is yet so ask another question
+            self.ask_clarifying_question(response)
 
     def ask_clarifying_question(self, user_msg:str):
         self.rolling_context.append(HumanMessage(content=user_msg))
-        ai_question=self.refiner.chat(self.rolling_context)
-        print( ai_question.content)
+        #LLM call to generate clarifying qustion
+        ai_question_to_user=self.refiner.chat(self.rolling_context)
+        #this should be logger-print( ai_question.content)
+        self.rolling_context.append(AIMessage(content=ai_question_to_user))
         self.attempts_to_understand+=1
-        self.chat_publisher.publish(ai_question)
+        #publish the question to user
+        self.chat_publisher.publish(ai_question_to_user.content)
 
     def broadcast_target(self, target:str): #callback for publishing target name
         self.target_publisher.publish(target)
 
-
 def judge(judger:LLM_Object, request:str)->str:
     #this funtion takes a request and determines if a searchable object is in it
     #returns yes or no
-    #it only needs to be called once bc the context never changes
 
     system_message_prompt=SystemMessagePromptTemplate.from_template(judger.context)
     human_template=f"Am I specifically requesting an object, if so what? : {request}"
@@ -121,7 +128,7 @@ def judge(judger:LLM_Object, request:str)->str:
     response=cleanup(response)
     return response
 
-def extract_request(verbose_request:str)->str:
+def extract_request(extractor: LLM_Object, verbose_request:str)->str:
     #this function takes a long request and extracts the target object
     #returning the object and its descriptors
 
@@ -151,7 +158,6 @@ def main(args=None):
     rclpy.init(args=args)
     interpreter=TerpNode()
     rclpy.spin(interpreter)
-
     interpreter.destroy_node()
     rclpy.shutdown()
 
