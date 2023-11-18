@@ -14,8 +14,8 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='vagrant',
-    maintainer_email='vagrant@todo.todo',
-    description='TODO: Package description',
+    maintainer_email='rldemont@wpi.edu',
+    description='User Node for project',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={

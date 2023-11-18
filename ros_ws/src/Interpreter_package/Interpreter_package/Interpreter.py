@@ -4,12 +4,11 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 import langchain
-from langchain import PromptTemplate, schema
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 from langchain.prompts import (ChatPromptTemplate, HumanMessagePromptTemplate,
-                               PromptTemplate, SystemMessagePromptTemplate)
+                                SystemMessagePromptTemplate)
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 OpenAI.api_key=os.environ["OPENAI_API_KEY"]
@@ -31,9 +30,9 @@ class TerpNode(Node):
     def __init__(self):
         super().__init__('interpreter')
         #define elements
-        self.refiner=LLM_Object("ros_ws/src/refiner_context.txt",MODEL_TO_USE,0)
-        self.judger=LLM_Object("ros_ws/src/judge_context.txt",MODEL_TO_USE, 0)
-        self.extractor=LLM_Object("ros_ws/src/extractor_context.txt",MODEL_TO_USE,0)
+        self.refiner=LLM_Object("interpreter_package/refiner_context.txt",MODEL_TO_USE,0) 
+        self.judger=LLM_Object("interpreter_package/judge_context.txt",MODEL_TO_USE, 0) 
+        self.extractor=LLM_Object("interpreter_package/extractor_context.txt",MODEL_TO_USE,0) 
         self.unknown_request=True
         self.attempts_to_understand=0
         self.target=""

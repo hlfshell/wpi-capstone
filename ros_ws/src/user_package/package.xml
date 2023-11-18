@@ -2,10 +2,13 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>user_package</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="vagrant@todo.todo">vagrant</maintainer>
+  <version>0.0.1</version>
+  <description>TODO: This is the user node for determineing the target object</description>
+  <maintainer email="rldemont@wpi.edu">vagrant</maintainer>
   <license>TODO: License declaration</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

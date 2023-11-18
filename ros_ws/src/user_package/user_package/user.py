@@ -3,9 +3,9 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
-class User_Node():
+class User_Node(Node):
     def __init__(self):
-        super().__init__('interpreter')
+        super().__init__('user')
         self.request_publisher_=self.create_publisher(String,'user_request',10)
         self.chat_publisher_=self.create_publisher(String, 'cq_response',10)
         #define subscriptions

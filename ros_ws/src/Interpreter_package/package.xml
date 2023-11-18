@@ -7,8 +7,10 @@
   <maintainer email="rldemont@wpi.edu">vagrant</maintainer>
   <license>TODO: License declaration</license>
 
+  <depend>os</depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>langchain</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
