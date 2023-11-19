@@ -123,6 +123,10 @@ class TerpNode(Node):
         target_msg.data=target
         self.target_publisher_.publish(target_msg)
 
+    def shutdown_and_restart_node(self):
+        #here we shutdown and restart the interpreter node after identifying target
+        pass
+
 def judge(judger:LLM_Object, request:String)->str:
     #this funtion takes a request and determines if a searchable object is in it
     #returns yes or no

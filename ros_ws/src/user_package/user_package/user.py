@@ -11,6 +11,7 @@ class User_Node(Node):
         self.chat_publisher_=self.create_publisher(String, 'cq_response',10)
         #define subscriptions
         self.subscriber_=self.create_subscription(String, 'clarifying_question',self.get_question_and_respond, 10)
+        self.subscriber_=self.create_subscription(String, 'target',self.reset_for_next_request, 10)
 
     def initiate_request(self):
         request=input('What can I get for you?')
@@ -26,6 +27,10 @@ class User_Node(Node):
         response_msg.data=response
         self.chat_publisher_.publish(response_msg)
     
+    def reset_for_next_request(self):
+        #here we shut down and respawn the user node
+        pass
+
 def main(args=None):
     rclpy.init(args=args)
     user=User_Node()
