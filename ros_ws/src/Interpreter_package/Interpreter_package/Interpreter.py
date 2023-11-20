@@ -38,78 +38,58 @@ class TerpNode(Node):
         self.refiner=LLM_Object("refiner_context.txt",MODEL_TO_USE,0) 
         self.judger=LLM_Object("judge_context.txt",MODEL_TO_USE, 0) 
         self.extractor=LLM_Object("extractor_context.txt",MODEL_TO_USE,0) 
-        self.unknown_request=True
+        self.new_request=True
         self.attempts_to_understand=0
         self.target=""
         self.rolling_context=[]
+        self.last_suggestion=""
         # define publishing
         self.target_publisher_=self.create_publisher(String,'target',10)
         self.chat_publisher_=self.create_publisher(String, 'clarifying_question',10)
         #define subscriptions
-        self.subscriber_=self.create_subscription(String, 'user_request',self.get_initial_request,10)
-        self.subscriber_=self.create_subscription(String, 'cq_response',self.get_chat_response, 10)
+        self.subscriber_=self.create_subscription(String, 'user_request',self.get_request,10)
 
-    def get_initial_request(self, request: String): #callback for subscribing to user initial_request
-         #this is the users original/new request
-         #separated initial request bc it will redirect all activites and may occur when 
-         #a search has already started.  It also resets the number of attempts to understand
-         #as well as the chat history
-
-        user_msg="User: " + request.data
-        #self.get_logger().info("I understand the user " + user_msg)
-
-        #initalize vars for new request
-        self.target=""
-        self.unknown_request=True
-        self.attempts_to_understand=0
-
-        #check request user request to see if it is clear already
-        judgement=judge(self.judger, request.data)
-        if judgement=="yes":
-            #extract and pubish the target from the initial request
-            self.target=extract_request(self.extractor, request.data)
-            self.get_logger().info("The target is " + self.target)
-            self.unknown_request=False
-            self.broadcast_target(self.target)
-
-        #if not, ask clarifying question
-        else:
-            self.ask_clarifying_question(user_msg)
-
-    def get_chat_response(self, response_msg: String): #callback for subscribing to user response
+    def get_request(self, request_msg: String): #callback for subscribing to user response
         #this callback gets the user response to a chat string
         #check if the response is yes-that means user is confirming your last item,
         #if so, the last ai message is the target
-        response=response_msg.data
-        if response.strip().lower()=="yes":
-            self.target=extract_request(self.refiner.AIMessage.content)
+        request=request_msg.data
+
+        if request.strip().lower()=="yes" and self.new_request==False:
+            #user is responding to a direct suggestion
+            self.target=extract_request(self.refiner.last_suggestion) 
             self.broadcast_target(self.target)
-            self.get_logger().info("The target is " + self.target)
-                    
+
+        self.new_request=False         
+
         #SO if not responding yes, use judge to see if the item is actionable in response
-        judgement=judge(self.judger, response)
+        judgement=judge(self.judger, request)
+        print("judgement= "+ judgement)
         if judgement=="yes":
             #identify simple target
-            self.target=extract_request(self.extractor, response)
-            #pubish target
+            self.target=extract_request(self.extractor, request)
+            print(self.target)
+            #publish target
             self.broadcast_target(self.target)
-            self.get_logger().info("The target is "+ self.target)
-        
+
         #if we've been going round, restart conversation
         elif self.attempts_to_understand==5:
             #reset rolling context
             self.refiner.reset_context()
             self.attempts_to_understand=0
             #Chat the request to start over
-            self.chat_publisher_.publish("I'm sorry i dont inderstand.  Could we start over?")
+            start_over_msg=String()
+            start_over_msg.data="I'm sorry i dont inderstand.  Could we start over?"
+            self.chat_publisher_.publish(start_over_msg)
         else:
             #we dont know what the target is yet so ask another question
-            self.ask_clarifying_question(response)
-
+            self.ask_clarifying_question(request)
+    
     def ask_clarifying_question(self, user_msg:str):
         self.rolling_context.append(HumanMessage(content=user_msg))
         #LLM call to generate clarifying qustion
         ai_question_to_user=self.refiner.chat(self.rolling_context)
+        self.last_suggestion=ai_question_to_user.content
         self.get_logger().info( "The response from the LLM is "+ai_question_to_user.content)
         self.rolling_context.append(ai_question_to_user.content)
         self.attempts_to_understand+=1
@@ -119,13 +99,20 @@ class TerpNode(Node):
         self.chat_publisher_.publish(clarifying_question)
 
     def broadcast_target(self, target:str): #callback for publishing target name
+        self.get_logger().info("The target is "+ self.target)
         target_msg=String()
         target_msg.data=target
         self.target_publisher_.publish(target_msg)
+        self.reset()
 
-    def shutdown_and_restart_node(self):
-        #here we shutdown and restart the interpreter node after identifying target
-        pass
+    def reset(self):
+        self.new_request=True
+        self.attempts_to_understand=0
+        self.target=""
+        self.rolling_context=[]
+        self.refiner.reset_context()
+
+
 
 def judge(judger:LLM_Object, request:String)->str:
     #this funtion takes a request and determines if a searchable object is in it
@@ -163,6 +150,7 @@ def cleanup(response):
     response=response.replace(".","")
     response=response.strip()
     response=response.lower()
+    response=response.replace("a ","")
     return response
 
 def main(args=None):
