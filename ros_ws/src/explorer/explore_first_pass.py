@@ -1,8 +1,7 @@
 import cv2
 import netpbmfile
-import array
 import numpy as np
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, Dict
 from queue import PriorityQueue
 
 from nav_msgs.msg import OccupancyGrid, MapMetaData
@@ -54,8 +53,8 @@ def pgm_to_occupancy_map(data: np.ndarray) -> OccupancyGrid:
     occupancy_grid = OccupancyGrid(
         info=MapMetaData(
             resolution=0.05,
-            width=map.shape[1],
-            height=map.shape[0],
+            width=map.shape[0],
+            height=map.shape[1],
         ),
         data=map.flatten(),
     )
@@ -70,7 +69,7 @@ def occupancy_grid_to_ndarray(occupancy_grid: OccupancyGrid) -> np.ndarray:
     processing
     """
     return np.array(occupancy_grid.data).reshape(
-        occupancy_grid.info.height, occupancy_grid.info.width
+        occupancy_grid.info.width, occupancy_grid.info.height
     )
 
 
@@ -104,11 +103,8 @@ class Explorer:
         self.current_location_pixels = self.__meters_coordinates_to_pixels(
             robot_location
         )
-        print("starting locations")
-        print(self.current_location)
-        print(self.current_location_pixels)
-
         self.__process_map()
+        self.__explored: Dict[Tuple[int, int], bool] = {}
 
         if self.debug:
             self.__debug_map = self.generate_map_image()
@@ -159,10 +155,6 @@ class Explorer:
             # self.__debug_map[current[1], current[0]] = [255, 0, 0]
             self.__debug_map[current] = [255, 0, 0]
 
-            print(
-                current, self.__distance(current, self.current_location), "meters away"
-            )
-
         # Is our current position suitable? To be suitable, it must:
         # 1. Be unknown itself
         # 2. Meet a maximum unknown value threshold from the processed
@@ -170,30 +162,44 @@ class Explorer:
         # 3. Be a minimum distance away from the current location
         current_value = self.map[current]
         processed_value = self.__processed_map[current]
-        current_distance = self.__pixel_coordinates_to_meters(current)
-        print(">>", current, current_value, processed_value, current_distance)
+        current_distance = self.distance(
+            self.current_location, self.__pixel_coordinates_to_meters(current)
+        )
+
         if (
             current_value == UNKNOWN
             and processed_value <= self.minimum_unknown_value
             and current_distance >= self.minimum_distance
         ):
-            print("found!", current)
             # We have found a suitable target location
-            self.target_location = current
+            self.target_location_pixels = current
+            self.target_location = self.__pixel_coordinates_to_meters(
+                self.target_location_pixels
+            )
             return self.target_location
 
         # If the value wasn't suitable for selection, we can then check its neighbors
         neighbors = self.__get_neighbors(current)
-        print("neighbors", neighbors)
+
         for neighbor in neighbors:
+            # If we've considered this neighbor before, don't reconsider
+            # it as a potential neighbor here.
+            if neighbor in self.__explored:
+                continue
+
+            # Mark this neighbor as considered
+            self.__explored[neighbor] = True
+
             # If the neighbor is occupied in the map, we will ignore it
             if self.map[neighbor] == OCCUPIED:
                 continue
 
             # We now calculate the cost of the neighbor. The cost is the
-            # distance from the start location to the neighbor.
+            # distance from the start location to the neighbor, since a
+            # greater distance should be a lower score, and lowest score
+            # is pulled first.
             neighbor_meters = self.__pixel_coordinates_to_meters(neighbor)
-            cost = self.__distance(neighbor_meters, self.current_location)
+            cost = self.distance(neighbor_meters, self.current_location)
 
             # Now append the neighbor to the queue for possible future
             # exploration
@@ -212,11 +218,6 @@ class Explorer:
             self.__queue.push(self.current_location_pixels, 0)
             while self.target_location is None:
                 self.__search()
-
-            # If we've reached this, we have the target location
-            self.target_location_pixels = self.__pixel_coordinates_to_meters(
-                self.target_location
-            )
 
             return self.target_location
         except NoTargetLocationFound:
@@ -250,12 +251,12 @@ class Explorer:
 
         return neighbors
 
-    def __distance(self, a: Tuple[int, int], b: Tuple[int, int]) -> float:
+    def distance(self, a: Tuple[int, int], b: Tuple[int, int]) -> float:
         """
         __distance calculates the euclidean distance between a and b in
         pixels
         """
-        return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1])) ** 2
+        return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
     def __meters_to_pixels(self, meters: float) -> int:
         """
@@ -282,8 +283,8 @@ class Explorer:
 
         # Then offset by the origin
         coordinates = (
-            int(coordinates[0] + self.world_origin.position.x),
-            int(coordinates[1] + self.world_origin.position.y),
+            coordinates[0] + self.world_origin.position.x,
+            coordinates[1] + self.world_origin.position.y,
         )
 
         return coordinates
@@ -304,8 +305,8 @@ class Explorer:
 
         # then convert to pixels
         coordinates = (
-            self.__meters_to_pixels(coordinates[0]),
-            self.__meters_to_pixels(coordinates[1]),
+            int(self.__meters_to_pixels(coordinates[0])),
+            int(self.__meters_to_pixels(coordinates[1])),
         )
 
         return coordinates
@@ -394,7 +395,7 @@ class Explorer:
 
         if self.target_location is not None:
             # Draw a circle at the target_location
-            target = self.__meters_coordinates_to_pixels(self.target_location)
+            target = self.target_location_pixels
             # target = (target[1], target[0])
             cv2.circle(img, target, 2, (0, 0, 255), -1)
 
@@ -432,7 +433,8 @@ og = pgm_to_occupancy_map(map)
 # cv2.imshow("Map", img)
 # cv2.waitKey()
 
-origin = (1.3, 3.0)
+# origin = (1.3, 3.0)
+origin = (3.0, 1.3)
 
 # og.info.origin.position.x = origin[0]
 # og.info.origin.position.y = origin[1]
@@ -442,6 +444,12 @@ ex = Explorer(og, origin, debug=True)
 
 print(ex.current_location_pixels)
 # print("init", map2[ex.current_location_pixels])
+
+# print("0 -> 1", ex.distance((0, 0), (1, 1)))
+# print("1 -> 2", ex.distance((1, 1), (2, 2)))
+
+# print("1 -> 0 x", ex.distance((0, 0), (1, 0)))
+# print("1 -> 0 y", ex.distance((0, 0), (0, 1)))
 
 # ex.show_map(size=800)
 
