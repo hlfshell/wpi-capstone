@@ -1,7 +1,6 @@
 import rclpy
 from rclpy.node import Node
 from threading import Lock, Thread
-from rclpy.action import ActionClient
 
 from typing import Optional, Tuple
 
@@ -9,7 +8,6 @@ from explorer.search import Explorer
 
 from nav_msgs.msg import OccupancyGrid, Odometry
 from geometry_msgs.msg import PoseStamped
-from nav2_msgs.action import NavigateToPose
 import cv2
 from time import sleep
 
@@ -64,10 +62,14 @@ class SearchService(Node):
         # self.__last_goal: Optional[Tuple(float, float)] = None
         # self.__last_action = None
 
-        self.__explore_thread = Thread(target=self.explore)
-        self.__explore_thread.start()
+        self.__ignore_list: Dict[Tuple[float, float], int] = {}
+        self.__ignore_at_n_attempts = 5
+        self.__ignore_list_lock = Lock()
 
         self.index = 0
+
+        self.__explore_thread = Thread(target=self.explore)
+        self.__explore_thread.start()
 
     def __map_callback(self, msg: OccupancyGrid):
         """
@@ -106,6 +108,20 @@ class SearchService(Node):
         # goal.pose.orientation.w = 1.0
 
         self.__goal_publisher.publish(pose)
+
+    def __generate_ignore_list(self) -> [Tuple[float, float]]:
+        """
+        Generates a list of coordinates to ignore based on
+        repeated failed attempts to reach.
+        """
+        with self.__ignore_list_lock:
+            ignore_list = [
+                k
+                for k, v in self.__ignore_list.items()
+                if v >= self.__ignore_at_n_attempts
+            ]
+
+            return ignore_list
 
     # def __send_goal(self, goal: Tuple[float, float]):
     #     """
@@ -152,22 +168,19 @@ class SearchService(Node):
 
         # raise "done"
 
-        explorer = Explorer(map, pose, debug=True)
+        ignore_list = self.__generate_ignore_list()
+
+        explorer = Explorer(map, pose, ignore_list=ignore_list, debug=True)
         goal = explorer.explore()
 
-        img = explorer.get_debug_map_img(size=800)
+        img = explorer.generate_debug_map_image(size=800)
         cv2.imwrite(f"logs/debug_map_{self.index}.png", img)
-        # explorer.show_map(size=800)
-        # explorer.show_debug_map(size=800)
 
         return goal
 
     def explore(self):
         self.index = 0
         while True:
-            # Delay a bit between checks
-            sleep(3)
-
             with self.__pose_lock:
                 pose = self.__latest_pose
             with self.__map_lock:
@@ -175,32 +188,29 @@ class SearchService(Node):
             if pose is None or map is None:
                 continue
 
-            # If we have an active action, kill it
-            # if self.__last_action is not None:
-            #     print("cancelling goal...")
-            #     self.__goal_pose_client._cancel_goal()
-            #     print("cancelled")
-            #     break
+            # Delay a bit between checks
+            sleep(5)
 
             goal = self.get_next_goal()
             if goal is None:
                 print("Complete!")
                 break
 
+            if goal in self.__ignore_list:
+                self.__ignore_list[goal] += 1
+            else:
+                self.__ignore_list[goal] = 1
+
             print("Sending to", goal)
             self.__send_goal(goal)
 
-    # def test(self):
-    #     # load the file from the pickle
-    #     map = None
-    #     with open("map.pickle", "rb") as f:
-    #         map = pickle.load(f)
 
-    #     # What is map?
-    #     print(map)
-    #     print(isinstance(map, OccupancyGrid))
-    #     origin = (-1.7001501162482318, -0.46967678386795436)
-    #     ex = Explorer(map, origin, debug=True)
-    #     ex.explore()
-    #     ex.show_map(size=800)
-    #     ex.show_debug_map(size=800)
+def main(args=None):
+    rclpy.init(args=args)
+
+    node = SearchService()
+
+    rclpy.spin(node)
+
+    node.destroy_node()
+    rclpy.shutdown()

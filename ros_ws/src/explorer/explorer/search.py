@@ -1,22 +1,16 @@
-from queue import PriorityQueue
 from typing import Dict, Optional, Tuple, Union
 
 import cv2
-import netpbmfile
 import numpy as np
-from nav_msgs.msg import MapMetaData, OccupancyGrid
+from nav_msgs.msg import OccupancyGrid
 
-OCCUPIED = 1
-UNKNOWN = -1
-FREE = 0
+from explorer.utils import Queue, occupancy_grid_to_ndarray
 
-OCCUPIED_PGM = 0
-UNKNOWN_PGM = 205
-FREE_PGM = 254
-
-OCCUPIED_RGB = [255, 255, 255]
-UNKNOWN_RGB = [127, 127, 127]
-FREE_RGB = [0, 0, 0]
+from explorer.constants import (
+    FREE,
+    OCCUPIED,
+    UNKNOWN,
+)
 
 
 class Explorer:
@@ -32,7 +26,10 @@ class Explorer:
         robot_location: Tuple[float, float],
         minimum_distance_meters: float = 1.0,
         minimum_unknown_value: float = -10,
-        maximum_obstacle_value: float = 10,
+        maximum_obstacle_value: float = 3,
+        ignore_list: Optional[list[Tuple[int, int]]] = None,
+        minimum_ignore_distance: float = 0.5,
+        robot_radius: float = 0.04,
         debug: bool = False,
     ):
         self.map = occupancy_grid_to_ndarray(occupancy_grid)
@@ -45,7 +42,13 @@ class Explorer:
         self.world_origin = occupancy_grid.info.origin
         self.minimum_unknown_value = minimum_unknown_value
         self.maximum_obstacle_value = maximum_obstacle_value
+        self.robot_radius = robot_radius
         self.debug = debug
+
+        if ignore_list is None:
+            ignore_list = []
+        self.__ignore_list = ignore_list
+        self.__minimum_ignore_distance = minimum_ignore_distance
 
         self.current_location = robot_location
         self.current_location_pixels = self.__meters_coordinates_to_pixels(
@@ -53,6 +56,10 @@ class Explorer:
         )
         self.__process_maps()
         self.__explored: Dict[Tuple[int, int], bool] = {}
+
+        # __costs will track the costs of a given set of coordinates
+        # for expanding costs over distance searched
+        self.__costs: Dict[Tuple[int, int], float] = {}
 
         if self.debug:
             self.__debug_map = self.generate_map_image()
@@ -111,6 +118,11 @@ class Explorer:
             raise NoTargetLocationFound
 
         current: Tuple[int, int] = self.__queue.pop()
+        current_meters = self.__pixel_coordinates_to_meters(current)
+        if current not in self.__costs:
+            current_cost = 0
+        else:
+            current_cost = self.__costs[current]
 
         if self.debug:
             # self.__debug_map[current[1], current[0]] = [255, 0, 0]
@@ -123,17 +135,31 @@ class Explorer:
         # 3. Meet a minimum obstacle value threshold from the
         #   obstacle map
         # 4. Be a minimum distance away from the current location
+        # 5. Touches at least one other known spot
+        # 6. Not within a configured distance of any ignored locations
         current_value = self.map[current]
         unknown_value = self.__unknown_map[current]
         obstacle_value = self.__obstacle_map[current]
-        current_distance = self.distance(
-            self.current_location, self.__pixel_coordinates_to_meters(current)
-        )
+        current_distance = self.distance(self.current_location, current_meters)
+        neighbors = self.__get_neighbors(current)
+        has_known_neighbor = False
+        # Determine if any of the neighbors are FREE, If not, we will
+        # not consider this location as a potential target
+        for neighbor in neighbors:
+            if self.map[neighbor] == FREE:
+                has_known_neighbor = True
+                break
+        nearby_ignored_location = self.__check_ignore_list_proximity(current)
+        obstacle_free = self.__check_chonk_radius(current)
+
         if (
             current_value == UNKNOWN
             and unknown_value <= self.minimum_unknown_value
             and obstacle_value <= self.maximum_obstacle_value
             and current_distance >= self.minimum_distance
+            and has_known_neighbor
+            and nearby_ignored_location is None
+            and obstacle_free
         ):
             # We have found a suitable target location
             self.target_location_pixels = current
@@ -143,8 +169,6 @@ class Explorer:
             return self.target_location
 
         # If the value wasn't suitable for selection, we can then check its neighbors
-        neighbors = self.__get_neighbors(current)
-
         for neighbor in neighbors:
             # If we've considered this neighbor before, don't reconsider
             # it as a potential neighbor here.
@@ -158,12 +182,18 @@ class Explorer:
             if self.map[neighbor] == OCCUPIED:
                 continue
 
+            # Similarly, if the neighbor is close to too many obstacles,
+            # we won't consider it.
+            if obstacle_value > self.maximum_obstacle_value:
+                continue
+
             # We now calculate the cost of the neighbor. The cost is the
             # distance from the start location to the neighbor, since a
             # greater distance should be a lower score, and lowest score
             # is pulled first.
             neighbor_meters = self.__pixel_coordinates_to_meters(neighbor)
-            cost = self.distance(neighbor_meters, self.current_location)
+            cost = self.distance(neighbor_meters, current_meters) + current_cost
+            self.__costs[neighbor] = cost
 
             # Now append the neighbor to the queue for possible future
             # exploration
@@ -189,6 +219,70 @@ class Explorer:
         except Exception as e:
             self.show_debug_map(size=800)
             raise e
+
+    def __check_chonk_radius(self, location: Tuple[int, int]) -> bool:
+        """
+        __check_chonk_radius checks if the given location has within
+        its area a set amount of obstacles, thus preventing the robot
+        from traveling through it. For instance - imagine a cylindrical
+        pole being viewed from one side of the robot's LIDAR. To the
+        robot, the interior of the pole might be an unknown target spot,
+        but we know from common sense that the robot can't fit into the
+        pole, so don't focus there.
+
+        Returns True if the spot is safe, False otherwise.
+        """
+        obstacle_map = np.where(self.map == UNKNOWN, 0, map)
+        obstacle_map = np.where(self.map == FREE, 0, map)
+
+        # Given the location, find the pixel points within a radial
+        # distance of that point.
+        radius = self.__meters_to_pixels(self.robot_radius)
+        x, y = location
+
+        x_range = range(x - radius, x + radius + 1)
+        y_range = range(y - radius, y + radius + 1)
+        location_meters = self.__pixel_coordinates_to_meters(location)
+
+        for x in x_range:
+            for y in y_range:
+                # If the spot is not an obstacle, we don't need to do
+                # any further checks
+                if obstacle_map[(x, y)] != OCCUPIED:
+                    continue
+
+                # Since we don't want a square bounding box but a closer
+                # radial one, we need to determine if the given (x,y)
+                # point is within the radius of the center point
+                xy_meters = self.__pixel_coordinates_to_meters((x, y))
+                if self.distance(xy_meters, location_meters) <= radius:
+                    # We have encountered an obstacle within our radius
+                    # so therefore we can stop - this spot has failed.
+                    return False
+
+        return True
+
+    def __check_ignore_list_proximity(
+        self, location: Tuple[int, int]
+    ) -> Optional[Tuple[int, int]]:
+        """
+        __check_ignore_list_proximity checks if the given location is
+        within a set distance (__minimum_ignore_distance)) away from
+        any of the ignored locations. If it is not, None is returned,
+        otherwise the closet match is. Note that the distance is in
+        meters whereas our coordinates are stored in pixels, so
+        additional conversion is required.
+        """
+        distances = [
+            self.distance(self.__pixels_to_meters(location), coordinate)
+            for coordinate in self.__ignore_list
+        ]
+
+        for index, distance in enumerate(distances):
+            if distance <= self.__minimum_ignore_distance:
+                return self.__ignore_list[index]
+
+        return None
 
     def __get_neighbors(self, origin: Tuple[int, int]) -> list[Tuple[int, int]]:
         """
@@ -217,8 +311,7 @@ class Explorer:
 
     def distance(self, a: Tuple[int, int], b: Tuple[int, int]) -> float:
         """
-        __distance calculates the euclidean distance between a and b in
-        pixels
+        __distance calculates the euclidean distance between a and b
         """
         return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
@@ -323,7 +416,16 @@ class Explorer:
 
         return img
 
-    def get_debug_map_img(self, size: Optional[Union[Tuple[int, int], int]] = None):
+    def generate_debug_map_image(
+        self, size: Optional[Union[Tuple[int, int], int]] = None
+    ) -> np.ndarray:
+        """
+        Generates a human viewable image of the map with origin and
+        possibly target location marked. All considered nodes are
+        colored blue if search has been completed. Note that the
+        explorer had to have the debug flag set to True for this to
+        be populated.
+        """
         img = self.__debug_map.copy()
 
         origin = self.current_location_pixels
@@ -340,19 +442,12 @@ class Explorer:
         return img
 
     def show_debug_map(self, size: Optional[Union[Tuple[int, int], int]] = None):
-        """ """
-        img = self.__debug_map.copy()
-
-        origin = self.current_location_pixels
-        img[origin] = [0, 255, 0]
-
-        if self.target_location is not None:
-            target = self.target_location_pixels
-            # target = (target[1], target[0])
-            img[target] = [0, 0, 255]
-
-        if size is not None:
-            img = self.__resize_map_image(img, size)
+        """
+        Shows the map with all considered nodes colored blue. Note
+        that the explorer had to have the debug flag set to True
+        for this to be populated.
+        """
+        img = self.generate_debug_map_image(size=size)
 
         cv2.imshow("Debug Map", img)
         cv2.waitKey()
@@ -384,85 +479,6 @@ class Explorer:
 
         cv2.imshow("Map", img)
         cv2.waitKey()
-
-
-class Queue:
-    """
-    Queue is just a priority queue wrapper to make it slightly
-    easier to work with given our use case.
-    """
-
-    def __init__(self):
-        self.queue = PriorityQueue()
-
-    def push(self, value: Tuple[int, int], cost=0):
-        self.queue.put((cost, value))
-
-    def pop(self) -> Tuple[int, int]:
-        return self.queue.get()[1]
-
-    def __len__(self):
-        return len(self.queue.queue)
-
-
-def pgm_to_occupancy_map(data: np.ndarray) -> OccupancyGrid:
-    # Sometimes pgms are loaded as read only - this
-    # extra step gets us out of that
-
-    map = np.zeros_like(data).astype(np.int8)
-
-    # Set the map to 0 to empty, -1 to unknown, and 1 to occupied
-    # to match OccupancyGrid rules
-    map = np.where(data == FREE_PGM, FREE, map)
-    map = np.where(data == OCCUPIED_PGM, OCCUPIED, map)
-    map = np.where(data == UNKNOWN_PGM, UNKNOWN, map)
-
-    occupancy_grid = OccupancyGrid(
-        info=MapMetaData(
-            resolution=0.05,
-            width=map.shape[0],
-            height=map.shape[1],
-        ),
-        data=map.flatten(),
-    )
-
-    return occupancy_grid
-
-
-def occupancy_grid_to_ndarray(occupancy_grid: OccupancyGrid) -> np.ndarray:
-    """
-    occupancy_grid_to_ndarray converts an OccupancyGrid to a numpy array,
-    where we convert the flat data to a 2 dimensional array for easier
-    processing
-    """
-    # Reshape the map from a flattened array to a 2d array. Note
-    # that the map is row major, so we need to transpose the
-    # sizes here to prevent reading the map being read in a
-    # corrupted manner for non-square maps
-    map = np.array(occupancy_grid.data).reshape(
-        occupancy_grid.info.height, occupancy_grid.info.width
-    )
-
-    # Sometimes the occupancy grid maps represent not a 1 for
-    # occupied but rather a probability from - to 100 for
-    # occupied. We want to assume that anything above a set
-    # value is occupied
-    map = np.where(map >= 1, OCCUPIED, map)
-
-    # Finally, the map is passed row major, so coordinates are (y,x);
-    # I'd much rather reason about the map as (x,y) so we'll transpose
-    # the map
-    map = map.T
-
-    return map
-
-
-def load_pgm_file(path: str) -> np.ndarray:
-    """
-    load_pgm_file loads a pgm file from the given path and returns
-    it as a numpy array
-    """
-    return netpbmfile.imread(path)
 
 
 class NoTargetLocationFound(Exception):
