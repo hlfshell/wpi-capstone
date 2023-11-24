@@ -53,9 +53,6 @@ class SearchService(Node):
             topic="/goal_pose",
             qos_profile=10,  # Keep last
         )
-        # self.__goal_pose_client = ActionClient(self, NavigateToPose, "NavigateToPose")
-        # self.__last_goal: Optional[Tuple(float, float)] = None
-        # self.__last_action = None
 
         self.__ignore_list: Dict[Tuple[float, float], int] = {}
         self.__ignore_at_n_attempts = 5
@@ -71,10 +68,7 @@ class SearchService(Node):
         Callback for /map topic. Updates the latest map
         """
         with self.__map_lock:
-            # print("Got map")
             self.__latest_map = msg
-
-        # self.get_next_goal()
 
     def __pose_callback(self, msg: Odometry):
         """
@@ -85,9 +79,7 @@ class SearchService(Node):
                 msg.pose.pose.position.x,
                 msg.pose.pose.position.y,
             )
-            # print("Got pose", pose)
             self.__latest_pose = pose
-        # self.get_next_goal()
 
     def __send_goal(self, goal: Tuple[float, float]):
         """
@@ -100,7 +92,6 @@ class SearchService(Node):
         pose.pose.position.x = goal[0]
         pose.pose.position.y = goal[1]
         pose.pose.orientation.w = 0.0
-        # goal.pose.orientation.w = 1.0
 
         self.__goal_publisher.publish(pose)
 
@@ -117,26 +108,6 @@ class SearchService(Node):
             ]
 
             return ignore_list
-
-    # def __send_goal(self, goal: Tuple[float, float]):
-    #     """
-    #     Sends a goal to the robot
-    #     """
-    #     # Convert our (x,y) coordinates to a PoseStamped
-    #     pose = PoseStamped()
-    #     pose.header.stamp = self.get_clock().now().to_msg()
-    #     pose.header.frame_id = "map"
-    #     pose.pose.position.x = goal[0]
-    #     pose.pose.position.y = goal[1]
-    #     pose.pose.orientation.w = 0.0
-    #     # goal.pose.orientation.w = 1.0
-
-    #     goal_message = NavigateToPose.Goal()
-    #     goal_message.pose = pose
-
-    #     future = self.__goal_pose_client.send_goal_async(goal_message)
-    #     self.__last_goal = goal
-    #     self.__last_action = future
 
     def get_next_goal(self) -> Optional[PoseStamped]:
         """
@@ -156,12 +127,6 @@ class SearchService(Node):
             else:
                 print("No map!")
             return None
-
-        # save the map to a pickle
-        # with open("map.pickle", "wb") as f:
-        #     pickle.dump(map, f)
-
-        # raise "done"
 
         ignore_list = self.__generate_ignore_list()
 
