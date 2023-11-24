@@ -1,19 +1,14 @@
-import rclpy
-from rclpy.node import Node
 from threading import Lock, Thread
-
+from time import sleep
 from typing import Optional, Tuple
 
-from explorer.search import Explorer
-
-from nav_msgs.msg import OccupancyGrid, Odometry
-from geometry_msgs.msg import PoseStamped
 import cv2
-from time import sleep
+import rclpy
+from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import OccupancyGrid, Odometry
+from rclpy.node import Node
 
-# from geometry_msgs.srv import GetCurrentPose
-
-# from nav2_util import getCurrentPose
+from explorer.search import Explorer
 
 
 class SearchService(Node):

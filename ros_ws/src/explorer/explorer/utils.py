@@ -1,16 +1,12 @@
 from queue import PriorityQueue
 from typing import Tuple
+
 import netpbmfile
-from nav_msgs.msg import MapMetaData, OccupancyGrid
 import numpy as np
-from explorer.constants import (
-    FREE,
-    FREE_PGM,
-    OCCUPIED,
-    OCCUPIED_PGM,
-    UNKNOWN,
-    UNKNOWN_PGM,
-)
+from nav_msgs.msg import MapMetaData, OccupancyGrid
+
+from explorer.constants import (FREE, FREE_PGM, OCCUPIED, OCCUPIED_PGM,
+                                UNKNOWN, UNKNOWN_PGM)
 
 
 class Queue:
