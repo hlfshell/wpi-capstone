@@ -120,7 +120,6 @@ class Explorer:
             current_cost = self.__costs[current]
 
         if self.debug:
-            # self.__debug_map[current[1], current[0]] = [255, 0, 0]
             self.__debug_map[current] = [255, 0, 0]
 
         # Is our current position suitable? To be suitable, it must:
@@ -428,7 +427,6 @@ class Explorer:
 
         if self.target_location is not None:
             target = self.target_location_pixels
-            # target = (target[1], target[0])
             img[target] = [0, 0, 255]
 
         if size is not None:
