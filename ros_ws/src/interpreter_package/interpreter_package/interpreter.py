@@ -9,9 +9,10 @@ from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 from langchain.prompts import (ChatPromptTemplate, HumanMessagePromptTemplate,
                                 SystemMessagePromptTemplate)
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from langchain.schema import  HumanMessage, SystemMessage
 
 from ament_index_python.packages import get_package_share_directory
+
 data_dir = os.path.join(get_package_share_directory("interpreter_package"))
 
 OpenAI.api_key=os.environ["OPENAI_API_KEY"]
