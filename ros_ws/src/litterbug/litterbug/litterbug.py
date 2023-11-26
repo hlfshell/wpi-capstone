@@ -4,10 +4,13 @@ import math
 import numpy as np
 from litterbug.map import Map
 from litterbug.items import Item
-from litterbug.gazebo import Gazebo
+from litterbug.gazebo import Gazebo, ItemAlreadyExists
 
-from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.clock import ClockType
+
+from capstone_interfaces.msg import ObjectSpotted
 
 
 class Litterbug(Node):
@@ -36,28 +39,47 @@ class Litterbug(Node):
         check and does not consider orientation
     """
 
-    def __init__(self, items: List[Item], map: Map, interaction_range: float = 0.5):
+    def __init__(
+        self,
+        items: List[Item],
+        map: Map,
+        interaction_range: float = 0.5,
+        vision_range: float = 5.0,
+        fov: float = math.radians(40.0),
+    ):
         super().__init__("litterbug_service")
 
         self.__map = map
 
         self.__gazebo = Gazebo()
-        print("before")
         self.__gazebo.wait_for_ready()
-        print("ready")
-        raise "stop"
 
         self.__interaction_range = interaction_range
 
+        # World and robot inventory management
         self.__world_items_lock = Lock()
         self.__world_items = items
 
-        self.__robots_posession_lock = Lock()
-        self.__robots_posession: List[Item] = []
+        self.__robots_possession_lock = Lock()
+        self.__robots_possession: List[Item] = []
 
-        self.__robot_location_pose = Lock()
+        # Tracking the robot pose
+        self.__odometry_subscriber = self.create_subscription(
+            msg_type=Odometry,
+            topic="/odom",
+            callback=self.__update_robot_pose,
+            qos_profile=10,  # Keep last
+        )
+        self.__robot_pose_lock = Lock()
         self.__robot_location: Tuple[float, float] = (0.0, 0.0)
         self.__robot_orientation: float = 0.0  # radians
+
+        # Object broadcaster
+        self.__object_spotted_publisher = self.create_publisher(
+            msg_type=ObjectSpotted,
+            topic="/object_spotted",
+            qos_profile=10,  # Keep last
+        )
 
     def populate(self):
         """
@@ -67,7 +89,7 @@ class Litterbug(Node):
         for item in self.__items:
             try:
                 self.__gazebo.add_item(item)
-            except gazebo.ItemAlreadyExists:
+            except ItemAlreadyExists:
                 continue
 
     def interact(self, item: Item):
@@ -91,12 +113,12 @@ class Litterbug(Node):
         # TODO - implement
         pass
 
-    def __update_robot_pose(self, pose: PoseStamped):
+    def __update_robot_pose(self, pose: Odometry):
         """
         __update_robot_location updates the robot location
         as per the broadcasted last position.
         """
-        with self.__robot_location_lock:
+        with self.__robot_pose_lock:
             self.__robot_location = (pose.pose.position.x, pose.pose.position.y)
             _, _, psi = self.__quaternion_to_euler(
                 pose.pose.orientation.x,
@@ -112,7 +134,7 @@ class Litterbug(Node):
         location as a tuple of (x, y) and its orientation
         as an angle in radians
         """
-        with self.__robot_location_lock:
+        with self.__robot_pose_lock:
             return self.__robot_location, self.__robot_orientation
 
     def __quaternion_to_euler(self, x, y, z, w):
@@ -146,19 +168,26 @@ class Litterbug(Node):
         with self.__world_items_lock:
             self.__world_items.remove(item)
 
+    def __get_world_items(self) -> List[Item]:
+        """
+        __get_world_items returns a list of items in the world
+        """
+        with self.__world_items_lock:
+            return self.__world_items
+
     def __add_robot_item(self, item: Item):
         """
         __add_robot_item adds an item to the robot's possession
         """
-        with self.__robots_posession_lock:
-            self.__robots_posession.append(item)
+        with self.__robots_possession_lock:
+            self.__robots_possession.append(item)
 
     def __remove_robot_item(self, item: Item):
         """
         __remove_robot_item removes an item from the robot's possession
         """
-        with self.__robots_posession_lock:
-            self.__robots_posession.remove(item)
+        with self.__robots_possession_lock:
+            self.__robots_possession.remove(item)
 
     def __distance(self, a: Tuple[float, float], b: Tuple[float, float]) -> float:
         """
@@ -209,6 +238,79 @@ class Litterbug(Node):
         # TODO
         pass
 
+    def __within_cone(
+        self,
+        origin: Tuple[float, float],
+        target: Tuple[float, float],
+        radius: float,
+        heading: float,
+        fov: float,
+    ) -> bool:
+        """
+        __within_cone checks whether a cone projected of radius size and
+        heading direction at width of the fov angle contains the given
+        target location. The heading is the expected direction that the cone
+        is projected at, and the fov is the total arc width of the cone
+        (so +/- 1/2 fov). All angles are assumed to be in radians.
+        """
+        # First we confirm whether or not the distance between the points
+        # are within the given radius; if not, we can't be within the cone
+        if self.__distance(origin, target) > radius:
+            return False
+
+        # Next we confirm that the angle between the origin and the
+        # target falls within the +/- fov range from the directed angle
+        # of the cone
+        angle_to_target = math.atan2(target[1] - origin[1], target[0] - origin[0])
+
+        # We wish to then find the difference between the two angles. But
+        # note that we have to deal with wrapping around the unit circle
+        # if the cone overlaps the 0/2pi boundary. Thus we need to take the
+        # minimum of the two possible angles
+        angle_diff = min(
+            abs(heading - angle_to_target),
+            abs(2 * math.pi - heading - angle_to_target),
+        )
+
+        # Finally, our fov is a total arc width, so we need to divide by 2
+        # and see if our angle falls within that distance from our heading
+        # angle
+        return angle_diff < fov / 2
+
+    def __fuzzy_coordinates(self, target: Tuple[float, float]) -> Tuple[float, float]:
+        """
+        __fuzzy_coordinates returns a tuple of coordinates that are
+        within a small range of the given origin coordinates with
+        some random error introduced to emulate the robot's vision
+        model being imperfect.
+        """
+        error_range = 0.05  # 5 centimeters of difference.
+        error_x = np.random.normal(-error_range, error_range)
+        error_y = np.random.normal(-error_range, error_range)
+        error_z = np.random.normal(-error_range, error_range)
+        return (target[0] + error_x, target[1] + error_y, target[2] + error_z)
+
+    def __vision_detection_probability(self, location: Tuple[float, float]) -> bool:
+        """
+        __vision_detection_probability returns a boolean value on whether
+        the robot sees it or not. The detection is based on a probability
+        determine by how close it is to the robot.
+
+        0-40% vision range - 95% chance
+        40-60% vision range - 75% chance
+        60-80% vision range - 50% chance
+        80-100% vision range - 25% chance
+        """
+        distance = self.__distance_from_robot(location)
+        if distance < self.__vision_range * 0.4:
+            return np.random.choice([True, False], p=[0.95, 0.05])
+        elif distance < self.__vision_range * 0.6:
+            return np.random.choice([True, False], p=[0.75, 0.25])
+        elif distance < self.__vision_range * 0.8:
+            return np.random.choice([True, False], p=[0.5, 0.5])
+        else:
+            return np.random.choice([True, False], p=[0.25, 0.75])
+
     def vision_check(self) -> List[Item]:
         """
         vision_check is an emulated check to see what items the robot
@@ -220,8 +322,50 @@ class Litterbug(Node):
         if the robot has seen the object or not, emulating a vision
         model's false negatives.
         """
-        # TODO
-        pass
+        # First, cut down the possible Items down to ones within the
+        # vision range for the robot. If that check works, then
+        # also perform a line of site check for the two spots.
+        pose, heading = self.__get_robot_pose()
+        items = []
+        for item in self.__get_world_items():
+            if self.__within_cone(
+                pose,
+                item.origin,
+                self.__vision_range,
+                self.__get_robot_pose(),
+                self.__fov,
+            ) and self.__map.line_of_sight(pose, item.origin):
+                items.append(item)
+
+        return items
+
+    def vision_scan(self):
+        """
+        vision_scan is an emulated scan of the robot's vision. It
+        will return a list of items that the robot has seen, and
+        will also publish a message to the /object_spotted topic
+        for each item.
+
+        Each item that is scanned will have its coordinates fuzzed
+        to emulate imperfect localization, and then published to
+        ObjectSpotted.
+        """
+        items = self.vision_check()
+        for item in items:
+            if self.__vision_detection_probability(item.origin):
+                # We are in fact spotting the object, so let's
+                # publish its fuzzed coordinates
+                x, y, z = self.__fuzzy_coordinates(item.origin)
+                self.__object_spotted_publisher.publish(
+                    ObjectSpotted(
+                        name=item.name,
+                        x=x,
+                        y=y,
+                        z=z,
+                    )
+                )
+
+        return items
 
 
 class CanNotInteractWithObject(Exception):
