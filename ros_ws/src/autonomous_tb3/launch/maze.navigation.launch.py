@@ -62,13 +62,6 @@ def generate_launch_description():
         name="maze_spawner",
        arguments=[maze_path, "b", "0.0", "0.0"],
     )
-    
-    # small_house = launch.actions.IncludeLaunchDescription(
-    # launch.launch_description_sources.PythonLaunchDescriptionSource(
-    #         os.path.join(
-    #             get_package_share_directory('aws_robomaker_small_house_world'),
-    #             'launch',
-    #             'small_house.launch.py')))
 
     # Include this if you're mapping the maze via keyboard
     # maze_mapping = IncludeLaunchDescription(

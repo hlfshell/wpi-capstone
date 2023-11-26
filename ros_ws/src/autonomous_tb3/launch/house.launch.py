@@ -3,7 +3,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, GroupAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -25,10 +25,10 @@ def generate_launch_description():
         "map.yaml",
     )
 
-    config_dir = os.path.join(get_package_share_directory("autonomous_tb3"), "config")
-    params_file = os.path.join(config_dir, "tb3_nav_params.yaml")
-    rviz_config = os.path.join(config_dir, "tb3_nav.rviz")
+    config_dir = os.path.join(get_package_share_directory("explorer"), "config")
+    rviz_config = os.path.join(config_dir, "nav.rviz")
     pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
+    params_file = os.path.join(get_package_share_directory("autonomous_tb3"), "config", "tb3_nav_params.yaml")
 
     use_sim_time = LaunchConfiguration("use_sim_time", default="true")
     x_pose = LaunchConfiguration("x_pose", default="0.0")
@@ -68,40 +68,34 @@ def generate_launch_description():
         name="maze_spawner",
        arguments=[house_world_path, "b", "0.0", "0.0"],
     )
-    
-    small_house = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('aws-robomaker-small-house-world'),
-                'launch',
-                'view_small_house.launch.py'
-            )
-        )
-    )
 
-    # Include this if you're mapping the maze via keyboard
-    maze_mapping = IncludeLaunchDescription(
+    # Launch async slam toolbox
+    slam = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(
+            [
                 get_package_share_directory("slam_toolbox"),
-                "launch",
-                "online_async_launch.py",
-            )
+                "/launch",
+                "/online_async_launch.py",
+            ]
         ),
+        launch_arguments={
+            "use_sim_time": "true",
+            "publish_period": "0.0",
+        }.items(),
     )
 
-    # # Remove this if you're mapping the maze via keyboard
-    # maze_nav = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(
-    #         [
-    #             get_package_share_directory("nav2_bringup"),
-    #             "/launch",
-    #             "/bringup_launch.py",
-    #         ]
-    #     ),
-    #     launch_arguments={"map": map_file, "params_file": params_file}.items(),
-    # )
-    
+    # Remove this if you're mapping the maze via keyboard
+    nav2 = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [
+                get_package_share_directory("nav2_bringup"),
+                "/launch",
+                "/bringup_launch.py",
+            ]
+        ),
+        launch_arguments={"map": map_file, "params_file": params_file}.items(),
+    )
+
     rviz = Node(
         package="rviz2",
         output="screen",
@@ -109,6 +103,17 @@ def generate_launch_description():
         name="rviz2_node",
         arguments=["-d", rviz_config],
     )
+
+    # Create a node for running our explorer application
+    explorer = Node(
+        package="explorer",
+        executable="explorer",
+        name="explorer_node",
+        output="screen",
+        parameters=[],
+    )
+
+    nav_group = GroupAction(actions=[nav2, slam])
 
     ld = LaunchDescription()
 
@@ -118,10 +123,8 @@ def generate_launch_description():
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
     ld.add_action(house_spawner)
-    #ld.add_action(small_house)
-    ld.add_action(maze_mapping)
-    ld.add_action(rviz)
-    # ld.add_action(maze_nav)
-    
+    ld.add_action(nav_group)
+    ld.add_action(explorer)
+    ld.add_action(rviz) 
 
     return ld
