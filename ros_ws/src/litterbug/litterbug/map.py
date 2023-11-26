@@ -268,7 +268,9 @@ class Map:
         # Return the cells
         return cells
 
-    def line_of_sight(self, origin: Tuple[float, float], target: Tuple[float, float]):
+    def line_of_sight(
+        self, origin: Tuple[float, float], target: Tuple[float, float]
+    ) -> bool:
         """
         line_of_sight returns true if there is a clear line of sight
         between the origin and target, where a line drawn between
@@ -290,69 +292,3 @@ class Map:
                 return False
 
         return True
-
-    def within_vision_cone(
-        self, origin: Tuple[float, float], target: Tuple[float, float]
-    ):
-        """
-        within_vision_cone returns true if the target is within a
-        projected cone of "vision" from the robot's origin, at a
-        given conical angle and radius. We also check for occlusion
-        via line of sight (though not full ray tracing).
-
-        The radius and angle are defined via self.__vision_radius
-        and self.__vision_angle, respectively within a distance.
-        """
-        # First we check to see if the spot is within the radius
-        # distance of the cone; if not, we need no further
-        # processing
-        distance = self.__distance(origin, target)
-        if distance > self.__vision_radius:
-            return False
-
-        # Next we confirm that there is no obvious occlusion
-        # via line of site
-        if not self.line_of_sight(origin, target):
-            return False
-
-        # Convert origin and target to pixel coordinates
-        origin = self.__meter_coordinates_to_pixel_coordinates(origin)
-        target = self.__meter_coordinates_to_pixel_coordinates(target)
-
-        # Convert our radius to pixel distance
-        radius = self.__vision_radius / self.__resolution
-
-        # Convert our angle to radians
-        angle = np.radians(self.__vision_angle)
-
-        # We then calculate the coordinates of the cone boundaries
-        cone_boundaries: List[Tuple[int, int]] = []
-        for theta in np.linspace(0, angle, 100):
-            x = int(origin[0] + radius * np.cos(theta))
-            y = int(origin[1] + radius * np.sin(theta))
-            cone_boundaries.append((x, y))
-
-        # Check if the given coordinates are within the boundaries
-        # of our cone
-        vector1 = np.array(target) - np.array(origin)
-        for i in range(len(cone_boundaries) - 1):
-            # Calculate the vectors from the center to the given
-            # coordinate and to the next point on the cone
-            # boundary
-            vector2 = np.array(cone_boundaries[i + 1]) - np.array(origin)
-
-            # Calculate the angle between the two vectors
-            cos_theta = np.dot(vector1, vector2) / (
-                np.linalg.norm(vector1) * np.linalg.norm(vector2)
-            )
-            theta = np.arccos(cos_theta)
-
-            # If the angle is less than or equal to the cone angle,
-            # we know that the given coordinate exists within the
-            # cone
-            if theta <= angle:
-                return True
-
-        # If we've reached this, the given coordinates do not exist
-        # within the cone
-        return False
