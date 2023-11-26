@@ -14,7 +14,6 @@ from langchain.schema import  HumanMessage, SystemMessage
 from ament_index_python.packages import get_package_share_directory
 
 data_dir = os.path.join(get_package_share_directory("interpreter_pkg"))
-
 OpenAI.api_key=os.environ["OPENAI_API_KEY"]
 MODEL_TO_USE="gpt-4"
 
@@ -23,6 +22,7 @@ class LLM_Object:
         with open(os.path.join(data_dir,context_file), 'r') as file:
             context= file.read().replace('\n', '')
         self.context=context
+        print("context is: "+self.context)
         self.rolling_context=self.context
         self.temp=temperature
         self.chat=ChatOpenAI(model_name=model)
@@ -65,6 +65,8 @@ class TerpNode(Node):
 
         #SO if not responding yes, use judge to see if the item is actionable in response
         judgement=judge(self.judger, request)
+        print("data directroy is :"+data_dir)
+        print("judge context is: "+self.judger.context)
         print("judgement= "+ judgement)
         if judgement=="yes":
             #identify simple target
