@@ -1,4 +1,4 @@
-from rosclpy import Node
+from rclpy.node import Node
 from gazebo_msgs.srv import (
     SpawnEntity,
     GetWorldProperties,
@@ -8,6 +8,8 @@ from gazebo_msgs.srv import (
     GetModelProperties,
     DeleteEntity,
 )
+from litterbug.items import Item
+from typing import List
 
 
 class Gazebo(Node):
@@ -18,13 +20,15 @@ class Gazebo(Node):
     """
 
     def __init__(self):
+        super().__init__("gazebo_item_service")
+
         self.__spawn_entity_client = self.create_client(SpawnEntity, "/spawn_entity")
         self.__delete_entity_client = self.create_client(DeleteEntity, "/delete_entity")
         self.__get_model_list_client = self.create_client(
             GetModelList, "/get_model_list"
         )
         self.__get_entity_state_client = self.create_client(
-            GetEntityState, "/get_entity_state"
+            GetEntityState, "/gazebo/get_entity_state"
         )
 
     def item_exists(self, item: Item) -> bool:
