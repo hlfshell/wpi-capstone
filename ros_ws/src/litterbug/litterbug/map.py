@@ -1,7 +1,8 @@
 import numpy as np
 import netpbmfile
 import cv2
-from typing import Tuple, List
+from typing import Tuple, List, Optional, Union
+import yaml
 
 OCCUPIED = 1
 UNKNOWN = -1
@@ -11,9 +12,9 @@ OCCUPIED_PGM = 0
 UNKNOWN_PGM = 205
 FREE_PGM = 254
 
-OCCUPIED_RGB = [255, 255, 255]
+OCCUPIED_RGB = [0, 0, 0]
 UNKNOWN_RGB = [127, 127, 127]
-FREE_RGB = [0, 0, 0]
+FREE_RGB = [255, 255, 255]
 
 
 class Map:
@@ -28,36 +29,59 @@ class Map:
     detection_thickness - when we do a line of sight detection,
         how thick should the lines be when drawing on the map
         to give a margin of error for detection.
+
+    robot_vision_radius - the radius of the robot's vision cone
+        in meters
+
+    robot_vision_angle - the angle of the robot's vision cone
+        in degrees
     """
 
     def __init__(
-        self, map: np.ndarray, resolution: float = 0.01, detection_thickness: int = 3
+        self,
+        map: np.ndarray,
+        resolution: float = 0.01,
+        detection_thickness: int = 3,
+        robot_vision_radius: float = 8,
+        robot_vision_angle: float = 90.0,
     ):
         self.__map = map
         self.__detection_thickness = detection_thickness
+        self.__resolution = resolution
+        self.__vision_radius = robot_vision_radius
+        self.__vision_angle = robot_vision_angle
 
     @staticmethod
-    def FromPGM(path: str) -> "Map":
+    def FromMapFile(path: str) -> "Map":
         """
         FromPGM loads a map from a pgm file and returns
-        it as a numpy array
+        it as a numpy array, and reads the YAML file
+        accompanying the map to get the resolution
         """
-        original_map = netpbmfile.imread(path)
+        map_path = f"{path}.pgm"
+        yaml_path = f"{path}.yaml"
 
-        # Get the resolution of the map from the pgm file
-        resolution = 1 / float(original_map.meta["resolution"])
+        map = netpbmfile.imread(map_path)
+
+        with open(yaml_path, "r") as file:
+            data = yaml.safe_load(file)
+
+        resolution = data["resolution"]
         print("resolution", resolution)
 
         # Sometimes pgms are loaded as read only - this
         # extra step gets us out of that
-        map = np.zeros_like(original_map).astype(np.int8)
+        # map = np.zeros_like(map).astype(np.int8)
 
         # Set the map to 0 to empty, -1 to unknown, and 1 to occupied
         # to match OccupancyGrid rules
-        map = np.where(map == FREE_PGM, FREE, original_map)
-        map = np.where(map == OCCUPIED_PGM, OCCUPIED, original_map)
-        map = np.where(map == UNKNOWN_PGM, UNKNOWN, original_map)
-
+        print("uniques", np.unique(map, return_counts=True))
+        map = np.where(map == OCCUPIED_PGM, OCCUPIED, map)
+        print("OCCUPIED", np.unique(map, return_counts=True))
+        map = np.where(map == FREE_PGM, FREE, map)
+        print("FREE", np.unique(map, return_counts=True))
+        map = np.where(map == UNKNOWN_PGM, UNKNOWN, map)
+        print("uniques", np.unique(map, return_counts=True))
         # The map is stored in row major (y, x) order, and we wish
         # to store it in column major (x, y) order, so we transpose
         # the map
@@ -65,25 +89,73 @@ class Map:
 
         return Map(map, resolution=resolution)
 
-    def to_rgb(self) -> np.ndarray:
+    def to_rgb(self, size: Optional[Union[Tuple[int, int], int]] = None) -> np.ndarray:
         """
-        to_rgb generates an RGB map for visualization
+        to_rgb generates an RGB map for visualization. The optional
+        size parameter allows you to specify the size of the map
+        in pixels either in (w, h), or as a single integer to make
+        the largest side of the map that size.
         """
-        rgb_map = np.zeros((self.__map.shape[0], self.__map.shape[1], 3)).astype(
-            np.uint8
+        # rgb_map = np.zeros((self.__map.shape[0], self.__map.shape[1], 3)).astype(
+        #     np.uint8
+        # )
+        rgb_map = np.zeros_like(self.__map).astype(np.uint8)
+        rgb_map = cv2.cvtColor(rgb_map, cv2.COLOR_GRAY2RGB)
+
+        rgb_map = np.where(
+            np.expand_dims(self.__map, -1) == OCCUPIED, OCCUPIED_RGB, rgb_map
         )
-        rgb_map = np.where(self.__map == OCCUPIED, OCCUPIED_RGB, rgb_map)
-        rgb_map = np.where(self.__map == UNKNOWN, UNKNOWN_RGB, rgb_map)
-        rgb_map = np.where(self.__map == FREE, FREE_RGB, rgb_map)
+        rgb_map = np.where(
+            np.expand_dims(self.__map, -1) == UNKNOWN, UNKNOWN_RGB, rgb_map
+        )
+        rgb_map = np.where(np.expand_dims(self.__map, -1) == FREE, FREE_RGB, rgb_map)
+
+        rgb_map = rgb_map.astype(np.uint8)
+
+        if size is not None:
+            rgb_map = self.__resize_img(rgb_map, size)
         return rgb_map
 
-    def draw(self):
+    def draw(self, size: Optional[Union[Tuple[int, int], int]] = None):
         """
         draw takes in a map and draws it on screen for debugging
         """
-        rgb_map = self.to_rgb()
-        cv2.imshow("Map", rgb_map)
+        rgb_map = self.to_rgb(size=size)
+        print("rgb", rgb_map.shape, rgb_map.dtype)
+        cv2.imshow("Map", cv2.cvtColor(rgb_map, cv2.COLOR_RGB2BGR))
         cv2.waitKey()
+
+    def __resize_img(
+        self, img: np.ndarray, size: Union[Tuple[int, int], int]
+    ) -> np.ndarray:
+        """
+        __resize img resizes an image to the given size. You can
+        specify the size of the map in pixels either in (w, h),
+        or as a single integer to make the largest side of the map
+        that size.
+        """
+        if size is not None:
+            if isinstance(size, int):
+                # We want to scale the image to the largest side
+                # being size, and the other side scaled to maintain
+                # the aspect ratio
+                height, width, _ = img.shape
+                if height > width:
+                    # Scale the height to size and scale the width
+                    # to maintain the aspect ratio
+                    scale = size / height
+                    width = int(width * scale)
+                    img = cv2.resize(img, (width, size))
+                else:
+                    # Scale the width to size and scale the height
+                    # to maintain the aspect ratio
+                    scale = size / width
+                    height = int(height * scale)
+                    img = cv2.resize(img, (size, height))
+            elif isinstance(size, tuple):
+                img = cv2.resize(img, size)
+
+        return img
 
     def __meter_coordinates_to_pixel_coordinates(
         self, x: float, y: float
@@ -96,6 +168,15 @@ class Map:
             int(x / self.__resolution),
             int(y / self.__resolution),
         )
+
+    def __distance(
+        self, origin: Tuple[float, float], target: Tuple[float, float]
+    ) -> float:
+        """
+        __distance returns the distance between two points in whatever units
+        the coordinates are in
+        """
+        return np.sqrt((origin[0] - target[0]) ** 2 + (origin[1] - target[1]) ** 2)
 
     def line(
         self, origin: Tuple[int, int], target: Tuple[int, int]
@@ -112,11 +193,46 @@ class Map:
         dx = abs(tx - ox)
         dy = abs(ty - oy)
 
-        # Detect horizontal or vertical lines
+        # Detect horizontal or vertical lines, as it breaks the
+        # general case below due to division by 0
         if dx == 0:
-            pass
+            # The line is vertical, so draw the set thickness
+            # along the x axis only as we move along the y axis
+            cells: List[Tuple[int, int]] = []
+            start = min(oy, ty)
+            end = max(oy, ty)
+            for y in range(start, end + 1):
+                for dx in range(
+                    -self.__detection_thickness, self.__detection_thickness + 1
+                ):
+                    # Handle out of bounds
+                    if (ox + dx < 0) or (ox + dx >= self.__map.shape[0]):
+                        continue
+                    if (y < 0) or (y >= self.__map.shape[1]):
+                        continue
+
+                    cells.append((ox + dx, y))
+
+            return cells
         elif dy == 0:
-            pass
+            # The line is horizontal, so draw the set thickness
+            # along the y axis only as we move along the x axis
+            cells: List[Tuple[int, int]] = []
+            start = min(ox, tx)
+            end = max(ox, tx)
+            for x in range(start, end + 1):
+                for dy in range(
+                    -self.__detection_thickness, self.__detection_thickness + 1
+                ):
+                    # Handle out of bounds
+                    if (x < 0) or (x >= self.__map.shape[0]):
+                        continue
+                    if (oy + dy < 0) or (oy + dy >= self.__map.shape[1]):
+                        continue
+
+                    cells.append((x, oy + dy))
+
+            return cells
 
         # Now handle the general case
         x_slope = 1 if tx > 0 else -1
@@ -128,18 +244,13 @@ class Map:
         while True:
             # Draw each cell within the spot and selected thickness,
             # but note if the cel is out of bounds
-            for i in range(-self.__detection_thickness, self.__detection_thickness):
+            for i in range(-self.__detection_thickness, self.__detection_thickness + 1):
                 if (ox + i < 0) or (ox + i >= self.__map.shape[0]):
                     continue
                 if (oy + i < 0) or (oy + i >= self.__map.shape[1]):
                     continue
 
-                cells.append(
-                    (
-                        ox + i,
-                        oy,
-                    )
-                )
+                cells.append((ox + i, oy))
 
             # If we're at the target point, we're done
             if (ox == tx) and (oy == ty):
@@ -179,3 +290,69 @@ class Map:
                 return False
 
         return True
+
+    def within_vision_cone(
+        self, origin: Tuple[float, float], target: Tuple[float, float]
+    ):
+        """
+        within_vision_cone returns true if the target is within a
+        projected cone of "vision" from the robot's origin, at a
+        given conical angle and radius. We also check for occlusion
+        via line of sight (though not full ray tracing).
+
+        The radius and angle are defined via self.__vision_radius
+        and self.__vision_angle, respectively within a distance.
+        """
+        # First we check to see if the spot is within the radius
+        # distance of the cone; if not, we need no further
+        # processing
+        distance = self.__distance(origin, target)
+        if distance > self.__vision_radius:
+            return False
+
+        # Next we confirm that there is no obvious occlusion
+        # via line of site
+        if not self.line_of_sight(origin, target):
+            return False
+
+        # Convert origin and target to pixel coordinates
+        origin = self.__meter_coordinates_to_pixel_coordinates(origin)
+        target = self.__meter_coordinates_to_pixel_coordinates(target)
+
+        # Convert our radius to pixel distance
+        radius = self.__vision_radius / self.__resolution
+
+        # Convert our angle to radians
+        angle = np.radians(self.__vision_angle)
+
+        # We then calculate the coordinates of the cone boundaries
+        cone_boundaries: List[Tuple[int, int]] = []
+        for theta in np.linspace(0, angle, 100):
+            x = int(origin[0] + radius * np.cos(theta))
+            y = int(origin[1] + radius * np.sin(theta))
+            cone_boundaries.append((x, y))
+
+        # Check if the given coordinates are within the boundaries
+        # of our cone
+        vector1 = np.array(target) - np.array(origin)
+        for i in range(len(cone_boundaries) - 1):
+            # Calculate the vectors from the center to the given
+            # coordinate and to the next point on the cone
+            # boundary
+            vector2 = np.array(cone_boundaries[i + 1]) - np.array(origin)
+
+            # Calculate the angle between the two vectors
+            cos_theta = np.dot(vector1, vector2) / (
+                np.linalg.norm(vector1) * np.linalg.norm(vector2)
+            )
+            theta = np.arccos(cos_theta)
+
+            # If the angle is less than or equal to the cone angle,
+            # we know that the given coordinate exists within the
+            # cone
+            if theta <= angle:
+                return True
+
+        # If we've reached this, the given coordinates do not exist
+        # within the cone
+        return False
