@@ -2,7 +2,7 @@ import os
 from glob import glob
 from setuptools import find_packages, setup
 
-package_name = 'interpreter_package'
+package_name = 'interpreter_pkg'
 
 setup(
     name=package_name,
@@ -13,18 +13,17 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name), glob('*.prompt'))
-        
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='vagrant',
-    maintainer_email='rldemont@wpi.edu',
-    description='Node to interpret user request',
-    license='MIT',
+    maintainer_email='vagrant@todo.todo',
+    description='TODO: Package description',
+    license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'interpreter = interpreter_package.interpreter:main'
+            'interpreter = interpreter_pkg.interpreter:main'
         ],
     },
 )

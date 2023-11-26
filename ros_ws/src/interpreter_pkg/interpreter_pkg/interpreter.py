@@ -13,7 +13,7 @@ from langchain.schema import  HumanMessage, SystemMessage
 
 from ament_index_python.packages import get_package_share_directory
 
-data_dir = os.path.join(get_package_share_directory("interpreter_package"))
+data_dir = os.path.join(get_package_share_directory("interpreter_pkg"))
 
 OpenAI.api_key=os.environ["OPENAI_API_KEY"]
 MODEL_TO_USE="gpt-4"
