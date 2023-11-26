@@ -125,7 +125,9 @@ Vagrant.configure("2") do |config|
 
         # Set the Turtlebot3 model to automatically load
         echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc
-        
+
+        # Set the fetch_description path
+        echo export FETCH_DESCRIPTION_PATH=$(ros2 pkg prefix fetch_description --share)
     SHELL
 
   end

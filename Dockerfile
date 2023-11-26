@@ -119,3 +119,6 @@ RUN apt update && apt install -y\
 
 # Set the Turtlebot3 model to automatically load
 RUN echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc 
+
+# Set the fetch_description path
+RUN echo 'export FETCH_DESCRIPTION_PATH=$(ros2 pkg prefix fetch_description --share)' >> /home/vagrant/.bashrc
