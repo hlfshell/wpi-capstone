@@ -13,14 +13,19 @@ def generate_launch_description():
     launch_file_dir = os.path.join(
         get_package_share_directory("turtlebot3_gazebo"), "launch"
     )
-    maze_path = os.path.join(
-        get_package_share_directory("autonomous_tb3"),
+
+    house_world_path = os.path.join(
+        get_package_share_directory("aws-robomaker-small-house-world"),
         "worlds",
-        "simple_maze",
-        "model.sdf",
+        "small_house.world",
     )
+    map_file = os.path.join(
+        get_package_share_directory("aws-robomaker-small-house-world"),
+        "maps",
+        "map.yaml",
+    )
+
     config_dir = os.path.join(get_package_share_directory("autonomous_tb3"), "config")
-    map_file = os.path.join(config_dir, "map_file.yaml")
     params_file = os.path.join(config_dir, "tb3_nav_params.yaml")
     rviz_config = os.path.join(config_dir, "tb3_nav.rviz")
     pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
@@ -33,6 +38,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_gazebo_ros, "launch", "gzserver.launch.py")
         ),
+        launch_arguments={"world": house_world_path}.items(),
     )
 
     gzclient_cmd = IncludeLaunchDescription(
@@ -55,43 +61,46 @@ def generate_launch_description():
         launch_arguments={"x_pose": x_pose, "y_pose": y_pose}.items(),
     )
 
-    maze_spawner = Node(
+    house_spawner = Node(
         package="autonomous_tb3",
         output="screen",
         executable="sdf_spawner",
         name="maze_spawner",
-       arguments=[maze_path, "b", "0.0", "0.0"],
+       arguments=[house_world_path, "b", "0.0", "0.0"],
     )
     
-    # small_house = launch.actions.IncludeLaunchDescription(
-    # launch.launch_description_sources.PythonLaunchDescriptionSource(
-    #         os.path.join(
-    #             get_package_share_directory('aws_robomaker_small_house_world'),
-    #             'launch',
-    #             'small_house.launch.py')))
+    small_house = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('aws-robomaker-small-house-world'),
+                'launch',
+                'view_small_house.launch.py'
+            )
+        )
+    )
 
     # Include this if you're mapping the maze via keyboard
-    # maze_mapping = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(
-    #         os.path.join(
-    #             get_package_share_directory("slam_toolbox"),
-    #             "launch",
-    #             "online_async_launch.py",
-    #         )
-    #     ),
-    # )
-
-    # Remove this if you're mapping the maze via keyboard
-    maze_nav = IncludeLaunchDescription(
+    maze_mapping = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            [
-                get_package_share_directory("nav2_bringup"),
-                "/launch",
-                "/bringup_launch.py",
-            ]
+            os.path.join(
+                get_package_share_directory("slam_toolbox"),
+                "launch",
+                "online_async_launch.py",
+            )
         ),
-        launch_arguments={"map": map_file, "params_file": params_file}.items(),
     )
+
+    # # Remove this if you're mapping the maze via keyboard
+    # maze_nav = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         [
+    #             get_package_share_directory("nav2_bringup"),
+    #             "/launch",
+    #             "/bringup_launch.py",
+    #         ]
+    #     ),
+    #     launch_arguments={"map": map_file, "params_file": params_file}.items(),
+    # )
     
     rviz = Node(
         package="rviz2",
@@ -108,10 +117,11 @@ def generate_launch_description():
     ld.add_action(gzclient_cmd)
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
-    ld.add_action(maze_spawner)
-    # ld.add_action(maze_mapping)
+    ld.add_action(house_spawner)
+    #ld.add_action(small_house)
+    ld.add_action(maze_mapping)
     ld.add_action(rviz)
-    ld.add_action(maze_nav)
+    # ld.add_action(maze_nav)
     
 
     return ld
