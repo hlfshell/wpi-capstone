@@ -2,10 +2,15 @@ from typing import List, Tuple
 from threading import Lock
 import math
 import numpy as np
-from litterbug.utils import load_map_from_pgm, draw_map
+from litterbug.map import Map
+from litterbug.items import Item
+from litterbug.gazebo import Gazebo
+
+from geometry_msgs.msg import PoseStamped
+from rclpy.node import Node
 
 
-class Litterbug:
+class Litterbug(Node):
     """
     Litterbug is a service that manages the objects within
     a simulated gazebo world. The goal of litterbug is to
@@ -31,13 +36,16 @@ class Litterbug:
         check and does not consider orientation
     """
 
-    def __init__(self, items: List[Item], map_path: str, interaction_range: float = 0.5):
-        self.__map = load_map_from_pgm(map_path)
-        draw_map(self.__map)
+    def __init__(self, items: List[Item], map: Map, interaction_range: float = 0.5):
+        super().__init__("litterbug_service")
 
-        raise "stop"
+        self.__map = map
+
         self.__gazebo = Gazebo()
+        print("before")
         self.__gazebo.wait_for_ready()
+        print("ready")
+        raise "stop"
 
         self.__interaction_range = interaction_range
 
@@ -47,11 +55,9 @@ class Litterbug:
         self.__robots_posession_lock = Lock()
         self.__robots_posession: List[Item] = []
 
-        self.__robot_location_lock = Lock()
+        self.__robot_location_pose = Lock()
         self.__robot_location: Tuple[float, float] = (0.0, 0.0)
-
-        # Load the pgm file and convert it into an array
-        self.__map: np.ndarray = 
+        self.__robot_orientation: float = 0.0  # radians
 
     def populate(self):
         """
@@ -85,21 +91,46 @@ class Litterbug:
         # TODO - implement
         pass
 
-    def __update_robot_location(self, pose: PoseStamped):
+    def __update_robot_pose(self, pose: PoseStamped):
         """
         __update_robot_location updates the robot location
         as per the broadcasted last position.
         """
         with self.__robot_location_lock:
             self.__robot_location = (pose.pose.position.x, pose.pose.position.y)
+            _, _, psi = self.__quaternion_to_euler(
+                pose.pose.orientation.x,
+                pose.pose.orientation.y,
+                pose.pose.orientation.z,
+                pose.pose.orientation.w,
+            )
+            self.__robot_orientation = psi
 
-    def __get_robot_location(self) -> Tuple[float, float]:
+    def __get_robot_pose(self) -> Tuple[Tuple[float, float], float]:
         """
-        __get_robot_location returns the current robot
-        location as a tuple of (x, y)
+        __get_robot_pose returns the current robot
+        location as a tuple of (x, y) and its orientation
+        as an angle in radians
         """
         with self.__robot_location_lock:
-            return self.__robot_location
+            return self.__robot_location, self.__robot_orientation
+
+    def __quaternion_to_euler(self, x, y, z, w):
+        """
+        __quaternion_to_euler converts a quaternion to
+        euler angles (in radians); returns a tuple of
+        (phi, theta, psi)
+        """
+        phi = math.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
+
+        theta = 2.0 * (w * y - z * x)
+        theta = 1.0 if theta > 1.0 else theta
+        theta = -1.0 if theta < -1.0 else theta
+        theta = math.asin(theta)
+
+        psi = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
+        return phi, theta, psi
 
     def __add_world_item(self, item: Item):
         """
@@ -140,7 +171,7 @@ class Litterbug:
         __distance_from_robot returns the distance from the
         robot to the item
         """
-        return self.__distance(self.__get_robot_location(), item.origin)
+        return self.__distance(self.__get_robot_pose(), item.origin)
 
     def __proximity_check(self, item: Item) -> bool:
         """
@@ -148,6 +179,14 @@ class Litterbug:
         the robot's proximity range
         """
         return self.__distance_from_robot(item) < self.__interaction_range
+
+    def __is_visible(self, item: Item) -> bool:
+        """
+        __is_visible returns true if the item is visible
+        to the robot
+        """
+        # TODO
+        pass
 
     def interactable_objects(self) -> List[Item]:
         """
