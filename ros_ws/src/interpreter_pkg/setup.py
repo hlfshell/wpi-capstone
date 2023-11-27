@@ -1,5 +1,6 @@
 import os
 from glob import glob
+
 from setuptools import find_packages, setup
 
 package_name = 'interpreter_pkg'
@@ -16,10 +17,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='vagrant',
-    maintainer_email='vagrant@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='Bob DeMont',
+    maintainer_email='rldemont@wpi.edu',
+    description='This package uses LLM to get users desired object.',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
