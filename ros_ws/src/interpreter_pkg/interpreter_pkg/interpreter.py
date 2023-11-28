@@ -68,9 +68,10 @@ class InterpreterNode(Node):
         # So if not responding yes, use judge to see if the item is
         # actionable in response
         judgement = judge(self.judger, request)
-        print("data directroy is :"+data_dir)
-        print("judge context is: "+self.judger.context)
-        print("judgement = " + judgement)
+        # some debugging lines to check if the judge is getting correct context
+        # self.get_logger().info("data directroy is :"+data_dir)
+        # self.get_logger().info("judge context is: "+self.judger.context)
+        # self.get_logger().info("judgement = " + judgement)
         if judgement == "yes":
             # identify simple target
             self.target = extract_request(self.extractor, request)
