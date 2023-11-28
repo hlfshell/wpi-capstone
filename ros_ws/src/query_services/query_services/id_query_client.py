@@ -1,4 +1,4 @@
-from capstone_interfaces.srv import ObjectDescriptionQuery, ObjectIDQuery
+from capstone_interfaces.srv import ObjectIDQuery
 from capstone_interfaces.msg import StateObject
 import sqlite3
 import sys # for testing at command line
@@ -37,10 +37,10 @@ def main():
 
     for i in range(len(response.states_of_objects)):
         searched_object = response.states_of_objects[i]
-        print(
-            'ID Searched: %s\nObject:\n  ID: %d\n  Description: %s\n  Location: %s\n  (x,y,z): (%f,%f,%f)\n  Task: %s\n  Time: %s' %
+        id_query_client.get_logger().info(
+            'ID Searched: %s\nObject:\n  ID: %d\n  Description: %s\n  Location: %s\n  (x,y,z): (%f,%f,%f)\n  Time: %s' %
             (str(sys.argv[1]), searched_object.id, searched_object.description, searched_object.location, 
-            searched_object.x,searched_object.y,searched_object.z, searched_object.task_when_seen,searched_object.time_seen))
+            searched_object.x,searched_object.y,searched_object.z,searched_object.time_seen))
 
     rclpy.spin(id_query_client)
     id_query_client.destroy_node()

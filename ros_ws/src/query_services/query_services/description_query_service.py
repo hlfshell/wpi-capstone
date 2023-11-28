@@ -1,8 +1,7 @@
-from capstone_interfaces.srv import ObjectDescriptionQuery, ObjectIDQuery
+from capstone_interfaces.srv import ObjectDescriptionQuery
 from capstone_interfaces.msg import StateObject
 from query_services import database_functions
 
-# from ros_ws.src.query_services import database_functions
 import sqlite3
 
 import rclpy
@@ -14,7 +13,7 @@ class DescriptionQueryService(Node):
 
     def __init__(self):
         super().__init__('description_query_service')
-        self.conn = database_functions.create_connection(r"state_db.db")
+        self.conn = database_functions.create_connection(self,r"state_db.db")
         self.srv = self.create_service(ObjectDescriptionQuery, 'object_description_query', self.object_query)
 
     def object_query(self, description: str, response: list[StateObject]) -> list[StateObject]:
@@ -38,13 +37,10 @@ class DescriptionQueryService(Node):
             curr_state.x = row[3]
             curr_state.y = row[4]
             curr_state.z = row[5]
-            curr_state.task_when_seen = row[6]
-            time_str = row[7]
-            s_ms=(time_str.split("(")[1]).split(",")
-            print("s_ms",s_ms)
-            s = int(s_ms[0].split("=")[1])
-            ms = int((s_ms[1].split("=")[1]).strip(")"))
-            print("s",s,"ms",ms)
+            given_timestamp = row[7] # change when back to new state_db
+            epoch = database_functions.dt2ep(given_timestamp)
+            s = round(epoch)
+            ms = int((epoch-s)/1e-9)
 
             time_obj = builtin_interfaces.msg.Time()
             time_obj.sec = s
@@ -54,12 +50,11 @@ class DescriptionQueryService(Node):
             state_list.append(curr_state)
 
         self.get_logger().info('Description queried: %s' % (description))
-        print("Description Queried: ",description)
         if rows:
-            print("Object(s): \n",state_list)
+            self.get_logger().info("Object(s): \n"+str(state_list))
             response.states_of_objects = state_list
         else:
-            print("No results found")
+            self.get_logger().info("No results found")
             state_list_0 = StateObject()
             state_list_0.description = "No results found"
             response.states_of_objects = [state_list_0.description]

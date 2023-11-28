@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os  
+from glob import glob
 
 package_name = 'query_services'
 
@@ -6,11 +8,11 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
-    # packages=[query_services]
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name,'launch'), glob(os.path.join('launch','*launch.[pxy][yma]*'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,6 +31,8 @@ setup(
             
             'add_object_service = query_services.new_object_service:main',
             'add_object_client = query_services.new_object_client:main',
+
+            'qa_service = query_services.qa_service:main'
 
         ],
     },
