@@ -1,8 +1,12 @@
+from __future__ import annotations
 import numpy as np
 import netpbmfile
 import cv2
 from typing import Tuple, List, Optional, Union
 import yaml
+from rclpy.node import Node
+from nav_msgs.msg import OccupancyGrid
+from threading import Lock
 
 OCCUPIED = 1
 UNKNOWN = -1
@@ -40,19 +44,23 @@ class Map:
     def __init__(
         self,
         map: np.ndarray,
-        resolution: float = 0.01,
+        resolution: float = 0.05,
+        origin: Tuple[float, float] = (0, 0),
         detection_thickness: int = 3,
         robot_vision_radius: float = 8,
         robot_vision_angle: float = 90.0,
     ):
-        self.__map = map
-        self.__detection_thickness = detection_thickness
+        # super().__init__("litterbug_map")
+        self.map = map
+        self.map_lock = Lock()
         self.__resolution = resolution
+        self.origin = origin
+        self.__detection_thickness = detection_thickness
         self.__vision_radius = robot_vision_radius
         self.__vision_angle = robot_vision_angle
 
     @staticmethod
-    def FromMapFile(path: str) -> "Map":
+    def FromMapFile(path: str) -> Map:
         """
         FromPGM loads a map from a pgm file and returns
         it as a numpy array, and reads the YAML file
@@ -63,11 +71,41 @@ class Map:
 
         map = netpbmfile.imread(map_path)
 
+        print("original size", map.shape)
+        print("First 4 col", map[0:24, 0])
+        print("First 4 row", map[0, 0:24])
+        print("uniques", np.unique(map, return_counts=True))
+
+        # cv2.imshow("Map", map)
+        # cv2.waitKey()
+        # map = np.swapaxes(map, 0, 1)
+        # cv2.imshow("Map swapped", map)
+        # cv2.waitKey()
+        # map = np.fliplr(map)
+        # cv2.imshow("Map flipped", map)
+        # cv2.waitKey()
+
         with open(yaml_path, "r") as file:
             data = yaml.safe_load(file)
 
+        print("DATA", data)
         resolution = data["resolution"]
+        origin = (data["origin"][0], data["origin"][1])
         print("resolution", resolution)
+        print("data", origin)
+        # x_pose = LaunchConfiguration('x_pose', default='-2.0')
+        # y_pose = LaunchConfiguration('y_pose', default='-0.5')
+        origin = (origin[0] + -2.0, origin[1] + -0.5)
+        # origin = (origin[1] + -0.5, origin[0] + -2.0)
+        # origin = (origin[0] + -0.5, origin[1] + -2.0)
+        print("adjusted origin", origin)
+
+        print("shape", map.shape)
+
+        # cv2.imshow("Map", map)
+        # cv2.waitKey()
+
+        # raise "stop"
 
         # Sometimes pgms are loaded as read only - this
         # extra step gets us out of that
@@ -75,19 +113,23 @@ class Map:
 
         # Set the map to 0 to empty, -1 to unknown, and 1 to occupied
         # to match OccupancyGrid rules
-        print("uniques", np.unique(map, return_counts=True))
         map = np.where(map == OCCUPIED_PGM, OCCUPIED, map)
-        print("OCCUPIED", np.unique(map, return_counts=True))
         map = np.where(map == FREE_PGM, FREE, map)
-        print("FREE", np.unique(map, return_counts=True))
         map = np.where(map == UNKNOWN_PGM, UNKNOWN, map)
-        print("uniques", np.unique(map, return_counts=True))
+
         # The map is stored in row major (y, x) order, and we wish
         # to store it in column major (x, y) order, so we transpose
         # the map
-        map = map.T
+        # map = map.T
+        # map = np.swapaxes(map, 0, 1)
+        # cv2.imshow("map", map)
+        # cv2.waitKey()
 
-        return Map(map, resolution=resolution)
+        print("Map early", map.shape)
+
+        map = Map(map, resolution=resolution, origin=origin)
+
+        return map
 
     def to_rgb(self, size: Optional[Union[Tuple[int, int], int]] = None) -> np.ndarray:
         """
@@ -99,21 +141,21 @@ class Map:
         # rgb_map = np.zeros((self.__map.shape[0], self.__map.shape[1], 3)).astype(
         #     np.uint8
         # )
-        rgb_map = np.zeros_like(self.__map).astype(np.uint8)
+        rgb_map = np.zeros_like(self.map).astype(np.uint8)
         rgb_map = cv2.cvtColor(rgb_map, cv2.COLOR_GRAY2RGB)
 
         rgb_map = np.where(
-            np.expand_dims(self.__map, -1) == OCCUPIED, OCCUPIED_RGB, rgb_map
+            np.expand_dims(self.map, -1) == OCCUPIED, OCCUPIED_RGB, rgb_map
         )
         rgb_map = np.where(
-            np.expand_dims(self.__map, -1) == UNKNOWN, UNKNOWN_RGB, rgb_map
+            np.expand_dims(self.map, -1) == UNKNOWN, UNKNOWN_RGB, rgb_map
         )
-        rgb_map = np.where(np.expand_dims(self.__map, -1) == FREE, FREE_RGB, rgb_map)
+        rgb_map = np.where(np.expand_dims(self.map, -1) == FREE, FREE_RGB, rgb_map)
 
         rgb_map = rgb_map.astype(np.uint8)
 
         if size is not None:
-            rgb_map = self.__resize_img(rgb_map, size)
+            rgb_map = self.resize_img(rgb_map, size)
         return rgb_map
 
     def draw(self, size: Optional[Union[Tuple[int, int], int]] = None):
@@ -121,11 +163,10 @@ class Map:
         draw takes in a map and draws it on screen for debugging
         """
         rgb_map = self.to_rgb(size=size)
-        print("rgb", rgb_map.shape, rgb_map.dtype)
         cv2.imshow("Map", cv2.cvtColor(rgb_map, cv2.COLOR_RGB2BGR))
         cv2.waitKey()
 
-    def __resize_img(
+    def resize_img(
         self, img: np.ndarray, size: Union[Tuple[int, int], int]
     ) -> np.ndarray:
         """
@@ -158,15 +199,29 @@ class Map:
         return img
 
     def __meter_coordinates_to_pixel_coordinates(
-        self, x: float, y: float
+        self, point: Tuple[float, float]
     ) -> Tuple[int, int]:
         """
         __meter_coordinates_to_pixel_coordinates converts from
         meter coordinates to pixel coordinates
         """
+        x, y = point
         return (
-            int(x / self.__resolution),
-            int(y / self.__resolution),
+            int((x - self.origin[0]) / self.__resolution),
+            int((y - self.origin[1]) / self.__resolution),
+        )
+
+    def __pixel_coordinates_to_meter_coordinates(
+        self, point: Tuple[int, int]
+    ) -> Tuple[float, float]:
+        """
+        __pixel_coordinates_to_meter_coordinates converts from
+        pixel coordinates to meter coordinates
+        """
+        x, y = point
+        return (
+            (x * self.__resolution) + self.origin[0],
+            (y * self.__resolution) + self.origin[1],
         )
 
     def __distance(
@@ -186,12 +241,19 @@ class Map:
         two pixel coordinate locations using Bresenham's algorithm
         modified to use the detection thickness
         """
+
+        return define_line(origin[0], origin[1], target[0], target[1])
+
         # Initiate our position
         ox, oy = origin
         tx, ty = target
 
         dx = abs(tx - ox)
         dy = abs(ty - oy)
+
+        print(f"(ox, oy) = ({ox}, {oy})")
+        print(f"(tx, ty) = ({tx}, {ty})")
+        print(f"(dx, dy) = ({dx}, {dy})")
 
         # Detect horizontal or vertical lines, as it breaks the
         # general case below due to division by 0
@@ -206,9 +268,9 @@ class Map:
                     -self.__detection_thickness, self.__detection_thickness + 1
                 ):
                     # Handle out of bounds
-                    if (ox + dx < 0) or (ox + dx >= self.__map.shape[0]):
+                    if (ox + dx < 0) or (ox + dx >= self.map.shape[0]):
                         continue
-                    if (y < 0) or (y >= self.__map.shape[1]):
+                    if (y < 0) or (y >= self.map.shape[1]):
                         continue
 
                     cells.append((ox + dx, y))
@@ -225,9 +287,9 @@ class Map:
                     -self.__detection_thickness, self.__detection_thickness + 1
                 ):
                     # Handle out of bounds
-                    if (x < 0) or (x >= self.__map.shape[0]):
+                    if (x < 0) or (x >= self.map.shape[0]):
                         continue
-                    if (oy + dy < 0) or (oy + dy >= self.__map.shape[1]):
+                    if (oy + dy < 0) or (oy + dy >= self.map.shape[1]):
                         continue
 
                     cells.append((x, oy + dy))
@@ -244,13 +306,14 @@ class Map:
         while True:
             # Draw each cell within the spot and selected thickness,
             # but note if the cel is out of bounds
-            for i in range(-self.__detection_thickness, self.__detection_thickness + 1):
-                if (ox + i < 0) or (ox + i >= self.__map.shape[0]):
-                    continue
-                if (oy + i < 0) or (oy + i >= self.__map.shape[1]):
-                    continue
+            # for i in range(-self.__detection_thickness, self.__detection_thickness + 1):
+            #     if (ox + i < 0) or (ox + i >= self.map.shape[0]):
+            #         continue
+            #     if (oy + i < 0) or (oy + i >= self.map.shape[1]):
+            #         continue
 
-                cells.append((ox + i, oy))
+            # cells.append((ox + i, oy))
+            cells.append((ox, oy))
 
             # If we're at the target point, we're done
             if (ox == tx) and (oy == ty):
@@ -288,7 +351,107 @@ class Map:
         # Now determine if any of the cells in our map are
         # mark OCCUPIED; if so, return False
         for cell in cells:
-            if self.__map[cell] == OCCUPIED:
+            if self.map[cell] == OCCUPIED:
                 return False
 
         return True
+
+
+def define_line(x0, y0, x1, y1):
+    if abs(y1 - y0) < abs(x1 - x0):
+        if x0 > x1:
+            line = define_line_low(x1, y1, x0, y0)
+            line.reverse()
+            return line
+        else:
+            return define_line_low(x0, y0, x1, y1)
+    else:
+        if y0 > y1:
+            line = define_line_high(x1, y1, x0, y0)
+            line.reverse()
+            return line
+        else:
+            return define_line_high(x0, y0, x1, y1)
+
+
+def define_line_low(x0, y0, x1, y1):
+    points = []
+    dx = x1 - x0
+    dy = y1 - y0
+    yi = 1
+    if dy < 0:
+        yi = -1
+        dy = -dy
+
+    D = (2 * dy) - dx
+    y = y0
+
+    for x in range(x0, x1 + 1):
+        points.append((x, y))
+
+        if D > 0:
+            y = y + yi
+            D = D + (2 * (dy - dx))
+        else:
+            D = D + 2 * dy
+
+    return points
+
+
+def define_line_high(x0, y0, x1, y1):
+    points = []
+
+    dx = x1 - x0
+    dy = y1 - y0
+    xi = 1
+
+    if dx < 0:
+        xi = -1
+        dx = -dx
+
+    D = (2 * dx) - dy
+    x = x0
+
+    for y in range(y0, y1 + 1):
+        points.append((x, y))
+
+        if D > 0:
+            x = x + xi
+            D = D + (2 * (dx - dy))
+        else:
+            D = D + 2 * dx
+
+    return points
+
+
+def occupancy_grid_to_ndarray(occupancy_grid: OccupancyGrid) -> np.ndarray:
+    """
+    occupancy_grid_to_ndarray converts an OccupancyGrid to a numpy array,
+    where we convert the flat data to a 2 dimensional array for easier
+    processing
+    """
+    # Reshape the map from a flattened array to a 2d array. Note
+    # that the map is row major, so we need to transpose the
+    # sizes here to prevent reading the map being read in a
+    # corrupted manner for non-square maps
+    map = np.array(occupancy_grid.data).reshape(
+        occupancy_grid.info.height, occupancy_grid.info.width
+    )
+
+    # Sometimes the occupancy grid maps represent not a 1 for
+    # occupied but rather a probability from - to 100 for
+    # occupied. We want to assume that anything above a set
+    # value is occupied
+    map = np.where(map >= 1, OCCUPIED, map)
+
+    # Finally, the map is passed row major, so coordinates are (y,x);
+    # I'd much rather reason about the map as (x,y) so we'll transpose
+    # the map
+    map = map.T
+
+    return map
+
+
+# OCCUPIED_RGB = [255, 255, 255]
+# UNKNOWN_RGB = [127, 127, 127]
+# FREE_RGB = [0, 0, 0]
