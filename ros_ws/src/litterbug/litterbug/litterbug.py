@@ -135,9 +135,8 @@ class Litterbug(Node):
                 quaternion.z,
                 quaternion.w,
             )
-            # self.__robot_orientation = -psi
             self.__robot_orientation = psi
-        print("firing test")
+
         self.test()
 
     def __get_robot_pose(self) -> Tuple[Tuple[float, float], float]:
@@ -213,7 +212,8 @@ class Litterbug(Node):
         robot to the item
         """
         pose, _ = self.__get_robot_pose()
-        return self.__distance(pose, item.origin)
+        x, y, _ = item.origin
+        return self.__distance(pose, (x, y))
 
     def __proximity_check(self, item: Item) -> bool:
         """
@@ -275,8 +275,6 @@ class Litterbug(Node):
         # target falls within the +/- fov range from the directed angle
         # of the cone
         angle_to_target = math.atan2(target[1] - origin[1], target[0] - origin[0])
-        # angle_to_target = math.atan2(origin[1] - target[1], origin[0] - target[0])
-        # angle_to_target = math.atan2(origin[0] - target[0], origin[1] - target[1])
 
         # We wish to then find the difference between the two angles. But
         # note that we have to deal with wrapping around the unit circle
@@ -347,31 +345,6 @@ class Litterbug(Node):
         for item in self.__get_world_items():
             x, y, _ = item.origin
 
-            img = self.__map.to_rgb()
-
-            # draw the item
-            pixel_x, pixel_y = (
-                int((x - self.__map.origin[0]) / 0.05),
-                img.shape[0] - int((y - self.__map.origin[1]) / 0.05),
-            )
-
-            # print(
-            #     self.__within_cone(
-            #         pose,
-            #         (x, y),
-            #         self.__vision_range,
-            #         heading,
-            #         self.__fov,
-            #     )
-            # )
-
-            # cv2.circle(img, (pixel_x, pixel_y), 5, (0, 255, 0), -1)
-            # img = self.__map.resize_img(img, size=800)
-            # cv2.imshow("Vision", img)
-            # cv2.waitKey()
-
-            # raise "stop"
-
             if self.__within_cone(
                 pose,
                 (x, y),
@@ -414,147 +387,49 @@ class Litterbug(Node):
     def test(self):
         img = self.__map.to_rgb()
 
-        # now move through each (x,y) and if it is in the cone mark it
-        # as blue
         pose, heading = self.__get_robot_pose()
-        # print(">>", pose, heading)
 
-        # raise "stop"
-
-        pixel_count = 0
-        cone_count = 0
-
+        # Mark the center of the map to show correct
+        # origin
         center = (0, 0)
         center_pixel = (
             int((center[0] - self.__map.origin[0]) / 0.05),
             int((center[1] - self.__map.origin[1]) / 0.05),
         )
 
-        # print("center", center_pixel, self.__map.origin)
         cv2.circle(img, center_pixel, 5, (0, 0, 255), -1)
 
-        # print("img shape late", img.shape)
-
-        # cv2.circle(img, (10, 0), 5, (0, 0, 255), -1)
-        # cv2.circle(img, (0, 10), 5, (0, 255, 0), -1)
-
-        # print("map shape", self.__map.map.shape)
-
-        # for y in range(self.__map.map.shape[0]):
-        #     for x in range(self.__map.map.shape[1]):
-        #         x_meters = (x * 0.05) + self.__map.origin[0]
-        #         y_meters = (y * 0.05) + self.__map.origin[1]
-        #         pixel_count += 1
-        #         if self.__within_cone(
-        #             pose,
-        #             (x_meters, y_meters),
-        #             self.__vision_range,
-        #             heading,
-        #             self.__fov,
-        #         ):
-        #             cone_count += 1
-
-        #             # img[y, x] = (255, 0, 0)
-        #             img[x, y] = (255, 0, 0)
-
-        # result = self.__map.line_of_sight(pose, (0.026827, 1.776700))
-        # print("line of site check", result)
-
-        # for x in range(img.shape[0]):
-        #     for y in range(img.shape[1]):
-        #         x_meter = (x * 0.05) + self.__map.origin[0]
-        #         y_meter = (y * 0.05) + self.__map.origin[1]
-        #         pixel_count += 1
-
-        # for pixel_x in range(img.shape[0]):
-        #     for pixel_y in range(img.shape[1]):
-        # for pixel_y in range(img.shape[0]):
-        #     for pixel_x in range(img.shape[1]):
-        # x = (pixel_x * 0.05) + self.__map.origin[0]
-        # y = (pixel_y * 0.05) + self.__map.origin[1]
-        # pixel_count += 1
-        # if self.__within_cone(
-        #     pose,
-        #     (x, y),
-        #     self.__vision_range,
-        #     heading,
-        #     self.__fov,
-        # ):
-        #     cone_count += 1
-        #     img[pixel_x, pixel_y] = (255, 0, 0)
-        #     # img[pixel_y, pixel_x] = (255, 0, 0)
-
-        cone_count = 0
         for pixel_y in range(img.shape[0]):
             for pixel_x in range(img.shape[1]):
                 # Calculate real coords
                 x = (pixel_x * 0.05) + self.__map.origin[0]
                 y = (pixel_y * 0.05) + self.__map.origin[1]
 
-                # print(
-                #     "checking",
-                #     pose,
-                #     (x, y),
-                #     self.__distance(pose, (x, y)),
-                #     self.__vision_range,
-                # )
                 if self.__within_cone(
                     pose,
                     (x, y),
-                    # (y, x),
                     self.__vision_range,
                     heading,
                     self.__fov,
                 ):
-                    cone_count += 1
-                    # img[pixel_y, pixel_x] = (255, 0, 0)
                     y_adjusted = img.shape[0] - pixel_y
                     try:
                         img[y_adjusted, pixel_x] = (255, 0, 0)
-                        # img[pixel_x, y_adjusted] = (255, 0, 0)
                     except:
-                        # print("except triggered")
                         pass
 
-        # print("cone count", cone_count)
         robot_pixel_x = int((pose[0] - self.__map.origin[0]) / 0.05)
         robot_pixel_y = img.shape[0] - int((pose[1] - self.__map.origin[1]) / 0.05)
-        # robot_pixel_x = int((pose[0] - self.__map.origin[1]) / 0.05)
-        # robot_pixel_y = int((pose[1] - self.__map.origin[0]) / 0.05)
-        # print("robot", robot_pixel_x, robot_pixel_y)
+
+        # Draw the robot
         cv2.circle(img, (robot_pixel_x, robot_pixel_y), 1, (255, 0, 0), -1)
-        # cv2.circle(img, (robot_pixel_y, robot_pixel_x), 1, (255, 0, 0), -1)
 
         for item in self.__get_world_items():
-            print(item.name, item.origin)
-            # x = int((item.origin[0] - self.__map.origin[0]) / 0.05)
-            # y = int((item.origin[1] - self.__map.origin[1]) / 0.05)
             x = int((item.origin[0] - self.__map.origin[0]) / 0.05)
             y = img.shape[0] - int((item.origin[1] - self.__map.origin[1]) / 0.05)
-            # print(x, y)
-            cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
-            # cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
 
-            # Draw the line
-            # cells = self.__map.line((robot_pixel_x, robot_pixel_y), (x, y))
-            cells = self.__map.line((robot_pixel_y, robot_pixel_x), (y, x))
-            # print("Cells found", len(cells))
-            for cell in cells:
-                # img[cell[1], cell[0]] = (0, 255, 0)
-                img[cell[0], cell[1]] = (0, 0, 255)
-
-            # Does the robot see it?
-            # if self.__vision_detection_probability(item):
-            #     print("Robot sees item")
-            # else:
-            #     print("Robot does not see item")
-
-        # cv2.circle(img, (robot_pixel_y, robot_pixel_x), 1, (0, 0, 255), -1)
-        # cv2.circle(img, (robot_pixel_x, robot_pixel_y), 1, (0, 0, 255), -1)
-
-        # img = self.__map.resize_img(img, size=800)
-
-        # print("pixel counts", pixel_count, cone_count)
+            # Draw the image
+            cv2.circle(img, (x, y), 3, (0, 255, 0), -1)
 
         seen = self.vision_check()
         if len(seen) > 0:
@@ -562,14 +437,6 @@ class Litterbug(Node):
                 print("Robot sees", item.name)
         else:
             print("ROBOT DOES NOT SEE NUTTIN")
-
-        # cv2.imshow("Vision", img)
-        # cv2.waitKey()
-        # raise "stop"
-
-        # img = self.__map.resize_img(img, size=800)
-        # cv2.imshow("Vision", img)
-        # cv2.waitKey()
 
 
 import cv2

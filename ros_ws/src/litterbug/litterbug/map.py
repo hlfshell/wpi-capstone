@@ -60,72 +60,37 @@ class Map:
         self.__vision_angle = robot_vision_angle
 
     @staticmethod
-    def FromMapFile(path: str) -> Map:
+    def FromMapFile(path: str, robot_starting_origin: Tuple[float, float]) -> Map:
         """
         FromPGM loads a map from a pgm file and returns
         it as a numpy array, and reads the YAML file
-        accompanying the map to get the resolution
+        accompanying the map to get the resolution. The
+        robot_starting_origin is not the pgm origin, but
+        rather the real world coordinates of the robot at
+        the moment of starting mapping, which is an
+        additional offset we must consider.
         """
         map_path = f"{path}.pgm"
         yaml_path = f"{path}.yaml"
 
         map = netpbmfile.imread(map_path)
 
-        print("original size", map.shape)
-        print("First 4 col", map[0:24, 0])
-        print("First 4 row", map[0, 0:24])
-        print("uniques", np.unique(map, return_counts=True))
-
-        # cv2.imshow("Map", map)
-        # cv2.waitKey()
-        # map = np.swapaxes(map, 0, 1)
-        # cv2.imshow("Map swapped", map)
-        # cv2.waitKey()
-        # map = np.fliplr(map)
-        # cv2.imshow("Map flipped", map)
-        # cv2.waitKey()
-
         with open(yaml_path, "r") as file:
             data = yaml.safe_load(file)
 
-        print("DATA", data)
         resolution = data["resolution"]
         origin = (data["origin"][0], data["origin"][1])
-        print("resolution", resolution)
-        print("data", origin)
-        # x_pose = LaunchConfiguration('x_pose', default='-2.0')
-        # y_pose = LaunchConfiguration('y_pose', default='-0.5')
-        origin = (origin[0] + -2.0, origin[1] + -0.5)
-        # origin = (origin[1] + -0.5, origin[0] + -2.0)
-        # origin = (origin[0] + -0.5, origin[1] + -2.0)
-        print("adjusted origin", origin)
 
-        print("shape", map.shape)
-
-        # cv2.imshow("Map", map)
-        # cv2.waitKey()
-
-        # raise "stop"
-
-        # Sometimes pgms are loaded as read only - this
-        # extra step gets us out of that
-        # map = np.zeros_like(map).astype(np.int8)
+        origin = (
+            origin[0] + robot_starting_origin[1],
+            origin[1] + robot_starting_origin[0],
+        )
 
         # Set the map to 0 to empty, -1 to unknown, and 1 to occupied
         # to match OccupancyGrid rules
         map = np.where(map == OCCUPIED_PGM, OCCUPIED, map)
         map = np.where(map == FREE_PGM, FREE, map)
         map = np.where(map == UNKNOWN_PGM, UNKNOWN, map)
-
-        # The map is stored in row major (y, x) order, and we wish
-        # to store it in column major (x, y) order, so we transpose
-        # the map
-        # map = map.T
-        # map = np.swapaxes(map, 0, 1)
-        # cv2.imshow("map", map)
-        # cv2.waitKey()
-
-        print("Map early", map.shape)
 
         map = Map(map, resolution=resolution, origin=origin)
 
