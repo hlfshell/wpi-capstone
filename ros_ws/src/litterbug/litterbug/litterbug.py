@@ -1,16 +1,18 @@
-from typing import List, Tuple
-from threading import Lock
 import math
+from threading import Lock, Thread
+from time import sleep
+from typing import Callable, List, Tuple
+
 import numpy as np
-from litterbug.map import Map
-from litterbug.items import Item
-from litterbug.gazebo import Gazebo, ItemAlreadyExists
-
 from nav_msgs.msg import Odometry
-from rclpy.node import Node
 from rclpy.clock import ClockType
+from rclpy.node import Node
 
-# from capstone_interfaces.msg import ObjectSpotted
+from litterbug.gazebo import Gazebo, ItemAlreadyExists
+from litterbug.items import Item
+from litterbug.map import Map
+
+from capstone_interfaces.msg import ObjectSpotted
 
 
 class Litterbug(Node):
@@ -37,6 +39,11 @@ class Litterbug(Node):
     interaction_range - the range at which the robot can
         reach and interact with objects. It is a radial
         check and does not consider orientation
+    vision_range - the range at which the robot can see
+        objects.
+    fov - the vision cone angle in radians
+    vision_fps - the max frequency at which the robot will
+        perform a vision check in frames per second
     """
 
     def __init__(
@@ -46,6 +53,7 @@ class Litterbug(Node):
         interaction_range: float = 0.5,
         vision_range: float = 5.0,
         fov: float = math.radians(40.0),
+        vision_fps: int = 24,
     ):
         super().__init__("litterbug_service")
 
@@ -77,11 +85,16 @@ class Litterbug(Node):
         self.__robot_orientation: float = 0.0  # radians
 
         # Object broadcaster
-        # self.__object_spotted_publisher = self.create_publisher(
-        #     msg_type=ObjectSpotted,
-        #     topic="/object_spotted",
-        #     qos_profile=10,  # Keep last
-        # )
+        self.__object_spotted_publisher = self.create_publisher(
+            msg_type=ObjectSpotted,
+            topic="/object_spotted",
+            qos_profile=10,  # Keep last
+        )
+        self.__vision_checker = IntervalEvent(
+            interval=1.0 / vision_fps,
+            func=self.vision_scan,
+        )
+        self.__vision_checker.start()
 
     def populate(self):
         """
@@ -136,8 +149,6 @@ class Litterbug(Node):
                 quaternion.w,
             )
             self.__robot_orientation = psi
-
-        self.test()
 
     def __get_robot_pose(self) -> Tuple[Tuple[float, float], float]:
         """
@@ -206,13 +217,17 @@ class Litterbug(Node):
         """
         return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
-    def __distance_from_robot(self, item: Item) -> float:
+    def __distance_from_robot(self, location: Tuple[float, float]) -> float:
         """
         __distance_from_robot returns the distance from the
         robot to the item
         """
         pose, _ = self.__get_robot_pose()
-        x, y, _ = item.origin
+        # x, y, _ = item.origin
+        if len(location) == 3:
+            x, y, _ = location
+        else:
+            x, y = location
         return self.__distance(pose, (x, y))
 
     def __proximity_check(self, item: Item) -> bool:
@@ -220,15 +235,8 @@ class Litterbug(Node):
         __proximity_check returns true if the item is within
         the robot's proximity range
         """
-        return self.__distance_from_robot(item) < self.__interaction_range
-
-    def __is_visible(self, item: Item) -> bool:
-        """
-        __is_visible returns true if the item is visible
-        to the robot
-        """
-        # TODO
-        pass
+        x, y, _ = item.origin
+        return self.__distance_from_robot((x, y)) < self.__interaction_range
 
     def interactable_objects(self) -> List[Item]:
         """
@@ -315,7 +323,6 @@ class Litterbug(Node):
         60-80% vision range - 50% chance
         80-100% vision range - 25% chance
         """
-        return True
         distance = self.__distance_from_robot(location)
         if distance < self.__vision_range * 0.4:
             return np.random.choice([True, False], p=[0.95, 0.05])
@@ -372,7 +379,9 @@ class Litterbug(Node):
             if self.__vision_detection_probability(item.origin):
                 # We are in fact spotting the object, so let's
                 # publish its fuzzed coordinates
-                x, y, z = self.__fuzzy_coordinates(item.origin)
+                # x, y, z = self.__fuzzy_coordinates(item.origin)
+                x, y, z = item.origin
+                print(f"sees - {item}")
                 self.__object_spotted_publisher.publish(
                     ObjectSpotted(
                         name=item.name,
@@ -439,9 +448,6 @@ class Litterbug(Node):
             print("ROBOT DOES NOT SEE NUTTIN")
 
 
-import cv2
-
-
 class CanNotInteractWithObject(Exception):
     """
     CanNotInteractWithObject is an exception that is raised when
@@ -455,3 +461,32 @@ class CanNotInteractWithObject(Exception):
 
     def __str__(self):
         return f"Can not interact with {self.item}"
+
+
+class IntervalEvent:
+    def __init__(self, interval: float, func: Callable, *args, **kwargs):
+        self.interval = interval
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+        self.__running_lock = Lock()
+        self.__thread: Thread = None
+
+    def start(self):
+        with self.__running_lock:
+            self.__running = True
+        self.__thread = Thread(target=self.__start)
+        self.__thread.start()
+
+    def stop(self):
+        with self.__running_lock:
+            self.__running = False
+
+    def __start(self):
+        while True:
+            with self.__running_lock:
+                if not self.__running:
+                    break
+            self.func(*self.args, **self.kwargs)
+            sleep(self.interval)
