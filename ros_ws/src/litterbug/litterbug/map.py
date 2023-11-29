@@ -1,12 +1,15 @@
 from __future__ import annotations
-import numpy as np
-import netpbmfile
-import cv2
-from typing import Tuple, List, Optional, Union
-import yaml
-from rclpy.node import Node
-from nav_msgs.msg import OccupancyGrid
+
 from threading import Lock
+from typing import List, Optional, Tuple, Union
+
+import cv2
+import netpbmfile
+import numpy as np
+import yaml
+from nav_msgs.msg import OccupancyGrid
+
+from litterbug.brensenham import define_line
 
 OCCUPIED = 1
 UNKNOWN = -1
@@ -81,14 +84,10 @@ class Map:
         resolution = data["resolution"]
         origin = (data["origin"][0], data["origin"][1])
 
-        print("origin", origin)
-        print("robot_starting_origin", robot_starting_origin)
-
         origin = (
             origin[0] + robot_starting_origin[1],
             origin[1] + robot_starting_origin[0],
         )
-        print("origin", origin)
 
         # Set the map to 0 to empty, -1 to unknown, and 1 to occupied
         # to match OccupancyGrid rules
@@ -213,93 +212,6 @@ class Map:
 
         return define_line(origin[0], origin[1], target[0], target[1])
 
-        # Initiate our position
-        ox, oy = origin
-        tx, ty = target
-
-        dx = abs(tx - ox)
-        dy = abs(ty - oy)
-
-        print(f"(ox, oy) = ({ox}, {oy})")
-        print(f"(tx, ty) = ({tx}, {ty})")
-        print(f"(dx, dy) = ({dx}, {dy})")
-
-        # Detect horizontal or vertical lines, as it breaks the
-        # general case below due to division by 0
-        if dx == 0:
-            # The line is vertical, so draw the set thickness
-            # along the x axis only as we move along the y axis
-            cells: List[Tuple[int, int]] = []
-            start = min(oy, ty)
-            end = max(oy, ty)
-            for y in range(start, end + 1):
-                for dx in range(
-                    -self.__detection_thickness, self.__detection_thickness + 1
-                ):
-                    # Handle out of bounds
-                    if (ox + dx < 0) or (ox + dx >= self.map.shape[0]):
-                        continue
-                    if (y < 0) or (y >= self.map.shape[1]):
-                        continue
-
-                    cells.append((ox + dx, y))
-
-            return cells
-        elif dy == 0:
-            # The line is horizontal, so draw the set thickness
-            # along the y axis only as we move along the x axis
-            cells: List[Tuple[int, int]] = []
-            start = min(ox, tx)
-            end = max(ox, tx)
-            for x in range(start, end + 1):
-                for dy in range(
-                    -self.__detection_thickness, self.__detection_thickness + 1
-                ):
-                    # Handle out of bounds
-                    if (x < 0) or (x >= self.map.shape[0]):
-                        continue
-                    if (oy + dy < 0) or (oy + dy >= self.map.shape[1]):
-                        continue
-
-                    cells.append((x, oy + dy))
-
-            return cells
-
-        # Now handle the general case
-        x_slope = 1 if tx > 0 else -1
-        y_slope = 1 if tx > ox else -1
-        error = dx - dy
-
-        cells: List[Tuple[int, int]] = []
-
-        while True:
-            # Draw each cell within the spot and selected thickness,
-            # but note if the cel is out of bounds
-            # for i in range(-self.__detection_thickness, self.__detection_thickness + 1):
-            #     if (ox + i < 0) or (ox + i >= self.map.shape[0]):
-            #         continue
-            #     if (oy + i < 0) or (oy + i >= self.map.shape[1]):
-            #         continue
-
-            # cells.append((ox + i, oy))
-            cells.append((ox, oy))
-
-            # If we're at the target point, we're done
-            if (ox == tx) and (oy == ty):
-                break
-
-            # Adjust the line to the next point
-            adjustment = 2 * error
-            if adjustment > -dy:
-                error -= dy
-                ox += x_slope
-            if adjustment < dx:
-                error += dx
-                oy += y_slope
-
-        # Return the cells
-        return cells
-
     def line_of_sight(
         self, origin: Tuple[float, float], target: Tuple[float, float]
     ) -> bool:
@@ -310,11 +222,6 @@ class Map:
         with any occupied cells. We modify the algorithm to handle
         a variable line thickness per settings of the map.
         """
-        # center = (
-        #     int(0 - self.origin[0] / self.__resolution),
-        #     self.map.shape[0] - int(0 - self.origin[1] / self.__resolution),
-        # )
-
         origin = (
             int((origin[0] - self.origin[0]) / self.__resolution),
             self.map.shape[0] - int((origin[1] - self.origin[1]) / self.__resolution),
@@ -325,109 +232,16 @@ class Map:
             self.map.shape[0] - int((target[1] - self.origin[1]) / self.__resolution),
         )
 
-        # print(self.origin)
-        # print("center", center)
-        # print("origin", origin)
-        # print("target", target)
-
-        # img = self.to_rgb()
-        # print("Size check", img.shape, self.map.shape)
-        # print("origin", origin)
-        # print("target", target)
-        # cv2.circle(img, origin, 3, (0, 0, 255), -1)
-        # cv2.circle(img, target, 3, (0, 255, 0), -1)
-        # cv2.circle(img, center, 3, (255, 0, 0), -1)
-
         # Get the cells that the line passes through
         cells = self.line((origin[1], origin[0]), (target[1], target[0]))
 
         # Now determine if any of the cells in our map are
         # mark OCCUPIED; if so, return False
         for cell in cells:
-            # try:
-            # img[cell[0], cell[1]] = (0, 0, 255)
             if self.map[cell] == OCCUPIED:
                 return False
-            # except IndexError as e:
-            #     print("exception", cell)
-            #     # This is due to a weird spacing issue I don't have
-            #     # time to debug atm.
-            #     pass
-
-        # raise "Boop"
-        # img = self.resize_img(img, 800)
-        # cv2.imshow("Map", img)
-        # cv2.waitKey()
-        # raise "crash"
 
         return True
-
-
-def define_line(x0, y0, x1, y1):
-    if abs(y1 - y0) < abs(x1 - x0):
-        if x0 > x1:
-            line = define_line_low(x1, y1, x0, y0)
-            line.reverse()
-            return line
-        else:
-            return define_line_low(x0, y0, x1, y1)
-    else:
-        if y0 > y1:
-            line = define_line_high(x1, y1, x0, y0)
-            line.reverse()
-            return line
-        else:
-            return define_line_high(x0, y0, x1, y1)
-
-
-def define_line_low(x0, y0, x1, y1):
-    points = []
-    dx = x1 - x0
-    dy = y1 - y0
-    yi = 1
-    if dy < 0:
-        yi = -1
-        dy = -dy
-
-    D = (2 * dy) - dx
-    y = y0
-
-    for x in range(x0, x1 + 1):
-        points.append((x, y))
-
-        if D > 0:
-            y = y + yi
-            D = D + (2 * (dy - dx))
-        else:
-            D = D + 2 * dy
-
-    return points
-
-
-def define_line_high(x0, y0, x1, y1):
-    points = []
-
-    dx = x1 - x0
-    dy = y1 - y0
-    xi = 1
-
-    if dx < 0:
-        xi = -1
-        dx = -dx
-
-    D = (2 * dx) - dy
-    x = x0
-
-    for y in range(y0, y1 + 1):
-        points.append((x, y))
-
-        if D > 0:
-            x = x + xi
-            D = D + (2 * (dx - dy))
-        else:
-            D = D + 2 * dx
-
-    return points
 
 
 def occupancy_grid_to_ndarray(occupancy_grid: OccupancyGrid) -> np.ndarray:

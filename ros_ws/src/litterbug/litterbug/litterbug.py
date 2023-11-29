@@ -4,15 +4,13 @@ from time import sleep
 from typing import Callable, List, Tuple
 
 import numpy as np
+from capstone_interfaces.msg import ObjectSpotted
 from nav_msgs.msg import Odometry
-from rclpy.clock import ClockType
 from rclpy.node import Node
 
 from litterbug.gazebo import Gazebo, ItemAlreadyExists
 from litterbug.items import Item
 from litterbug.map import Map
-
-from capstone_interfaces.msg import ObjectSpotted
 
 
 class Litterbug(Node):
@@ -53,7 +51,7 @@ class Litterbug(Node):
         interaction_range: float = 0.5,
         vision_range: float = 5.0,
         fov: float = math.radians(40.0),
-        vision_fps: int = 24,
+        vision_fps: int = 12,
     ):
         super().__init__("litterbug_service")
 
@@ -223,8 +221,10 @@ class Litterbug(Node):
         robot to the item
         """
         pose, _ = self.__get_robot_pose()
-        # x, y, _ = item.origin
-        if len(location) == 3:
+
+        if isinstance(location, Item):
+            x, y, _ = location.origin
+        elif len(location) == 3:
             x, y, _ = location
         else:
             x, y = location
@@ -305,12 +305,11 @@ class Litterbug(Node):
         some random error introduced to emulate the robot's vision
         model being imperfect.
         """
-        return target
-        # error_range = 0.05  # 5 centimeters of difference.
-        # error_x = np.random.normal(-error_range, error_range)
-        # error_y = np.random.normal(-error_range, error_range)
-        # error_z = np.random.normal(-error_range, error_range)
-        # return (target[0] + error_x, target[1] + error_y, target[2] + error_z)
+        error_range = 0.05  # 5 centimeters of difference.
+        error_x = np.random.normal(-error_range, error_range)
+        error_y = np.random.normal(-error_range, error_range)
+        error_z = np.random.normal(-error_range, error_range)
+        return (target[0] + error_x, target[1] + error_y, target[2] + error_z)
 
     def __vision_detection_probability(self, location: Tuple[float, float]) -> bool:
         """
@@ -379,9 +378,7 @@ class Litterbug(Node):
             if self.__vision_detection_probability(item.origin):
                 # We are in fact spotting the object, so let's
                 # publish its fuzzed coordinates
-                # x, y, z = self.__fuzzy_coordinates(item.origin)
-                x, y, z = item.origin
-                print(f"sees - {item}")
+                x, y, z = self.__fuzzy_coordinates(item.origin)
                 self.__object_spotted_publisher.publish(
                     ObjectSpotted(
                         description=item.name,
@@ -392,60 +389,6 @@ class Litterbug(Node):
                 )
 
         return items
-
-    def test(self):
-        img = self.__map.to_rgb()
-
-        pose, heading = self.__get_robot_pose()
-
-        # Mark the center of the map to show correct
-        # origin
-        center = (0, 0)
-        center_pixel = (
-            int((center[0] - self.__map.origin[0]) / 0.05),
-            int((center[1] - self.__map.origin[1]) / 0.05),
-        )
-
-        cv2.circle(img, center_pixel, 5, (0, 0, 255), -1)
-
-        for pixel_y in range(img.shape[0]):
-            for pixel_x in range(img.shape[1]):
-                # Calculate real coords
-                x = (pixel_x * 0.05) + self.__map.origin[0]
-                y = (pixel_y * 0.05) + self.__map.origin[1]
-
-                if self.__within_cone(
-                    pose,
-                    (x, y),
-                    self.__vision_range,
-                    heading,
-                    self.__fov,
-                ):
-                    y_adjusted = img.shape[0] - pixel_y
-                    try:
-                        img[y_adjusted, pixel_x] = (255, 0, 0)
-                    except:
-                        pass
-
-        robot_pixel_x = int((pose[0] - self.__map.origin[0]) / 0.05)
-        robot_pixel_y = img.shape[0] - int((pose[1] - self.__map.origin[1]) / 0.05)
-
-        # Draw the robot
-        cv2.circle(img, (robot_pixel_x, robot_pixel_y), 1, (255, 0, 0), -1)
-
-        for item in self.__get_world_items():
-            x = int((item.origin[0] - self.__map.origin[0]) / 0.05)
-            y = img.shape[0] - int((item.origin[1] - self.__map.origin[1]) / 0.05)
-
-            # Draw the image
-            cv2.circle(img, (x, y), 3, (0, 255, 0), -1)
-
-        seen = self.vision_check()
-        if len(seen) > 0:
-            for item in seen:
-                print("Robot sees", item.name)
-        else:
-            print("ROBOT DOES NOT SEE NUTTIN")
 
 
 class CanNotInteractWithObject(Exception):

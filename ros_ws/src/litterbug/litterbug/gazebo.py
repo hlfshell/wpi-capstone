@@ -1,15 +1,11 @@
-from rclpy.node import Node
-from gazebo_msgs.srv import (
-    SpawnEntity,
-    GetWorldProperties,
-    GetModelList,
-    GetModelState,
-    GetEntityState,
-    GetModelProperties,
-    DeleteEntity,
-)
-from litterbug.items import Item
 from typing import List
+
+from gazebo_msgs.srv import (DeleteEntity, GetEntityState, GetModelList,
+                             GetModelProperties, GetModelState,
+                             GetWorldProperties, SpawnEntity)
+from rclpy.node import Node
+
+from litterbug.items import Item
 
 
 class Gazebo(Node):
