@@ -52,13 +52,14 @@ class Litterbug(Node):
         vision_range: float = 5.0,
         fov: float = math.radians(40.0),
         vision_fps: int = 12,
+        models_directory: str = "./models",
     ):
         super().__init__("litterbug_service")
 
         self.__map = map
 
-        self.__gazebo = Gazebo()
-        # self.__gazebo.wait_for_ready()
+        self.__gazebo = Gazebo(models_dir=models_directory)
+        self.__gazebo.wait_for_ready()
 
         self.__interaction_range = interaction_range
         self.__vision_range = vision_range
@@ -99,11 +100,12 @@ class Litterbug(Node):
         populate adds all items to the simulation, ignoring
         errors where they exist already.
         """
-        for item in self.__items:
-            try:
-                self.__gazebo.add_item(item)
-            except ItemAlreadyExists:
-                continue
+        with self.__world_items_lock:
+            for item in self.__world_items:
+                try:
+                    self.__gazebo.spawn_item(item)
+                except ItemAlreadyExists:
+                    continue
 
     def interact(self, item: Item):
         """
