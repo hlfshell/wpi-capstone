@@ -5,6 +5,7 @@ from typing import Callable, List, Tuple
 
 import numpy as np
 from capstone_interfaces.msg import ObjectSpotted
+from capstone_interfaces.srv import PickupObject, PlaceObject
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 
@@ -59,7 +60,6 @@ class Litterbug(Node):
         self.__map = map
 
         self.__gazebo = Gazebo(models_dir=models_directory)
-        self.__gazebo.wait_for_ready()
 
         self.__interaction_range = interaction_range
         self.__vision_range = vision_range
@@ -83,7 +83,7 @@ class Litterbug(Node):
         self.__robot_location: Tuple[float, float] = (0.0, 0.0)
         self.__robot_orientation: float = 0.0  # radians
 
-        # Object broadcaster
+        # Vision and handling
         self.__object_spotted_publisher = self.create_publisher(
             msg_type=ObjectSpotted,
             topic="/object_spotted",
@@ -94,6 +94,26 @@ class Litterbug(Node):
             func=self.vision_scan,
         )
         self.__vision_checker.start()
+        self.__object_location_updater = IntervalEvent(
+            interval=1.0 / 5.0,
+            func=self.update_items_locations,
+        )
+        self.__object_location_updater.start()
+
+        # Services for interaction requests
+        self.__pickup_service = self.create_service(
+            srv_type=PickupObject,
+            srv_name="/pickup_object",
+            callback=self.__pickup_object,
+        )
+        self.__place_service = self.create_service(
+            srv_type=PlaceObject,
+            srv_name="/place_object",
+            callback=self.__place_object,
+        )
+
+    def wait_for_ready(self):
+        self.__gazebo.wait_for_ready()
 
     def populate(self):
         """
@@ -127,6 +147,109 @@ class Litterbug(Node):
 
         # TODO - implement
         pass
+
+    def pickup_item(self, item: Item):
+        """
+        pickup_item will attempt to pick up an item from the
+        world if it exists and is within range/pickupable.
+        If so, it gets added to the robot's inventory and
+        removed from the world otherwise. If not, it will
+        raise a
+        """
+        # Double check item proximity
+        if not self.__proximity_check(item):
+            raise CanNotPickUpObject(item, "Item not within proximity")
+
+        with self.__world_items_lock:
+            with self.__robots_possession_lock:
+                # Remove the item from the world items
+                self.__world_items.remove(item)
+
+                # Add it to our robot posessions
+                self.__robots_possession.append(item)
+
+    def __pickup_object(
+        self, request: PickupObject.Request, response: PickupObject.Response
+    ):
+        """
+        __pickup_object is the ROS service callback to pick up
+        and object
+        """
+        self.get_logger().debug(request.item_name)
+
+        target = request.object.lower()
+
+        # Get a list of all items we can interact with
+        interactable = self.interactable_objects()
+
+        # Find the first item that matches what we wish
+        # to interact with
+        item: Item = None
+        for i in interactable:
+            if i.name.lower() == target or i.label.lower() == target:
+                item = i
+                break
+        if item is None:
+            response.success = False
+            response.status_message = (
+                f"Could not find item {target} within interaction range"
+            )
+            return response
+
+        try:
+            self.pickup_item(item)
+        except CanNotPickUpObject as e:
+            response.success = False
+            response.status_message = str(e)
+            return response
+
+        response.success = True
+
+        return response
+
+    def place_item(self, item: Item):
+        """
+        place_item handles giving the human the object
+        that the robot is carrying
+        """
+
+        # Simply remove the object from the robot's possession for now;
+        # perhaps in the future there could be actual placement logic,
+        # but we'll assume it returns back to the human and hands it to
+        # them.
+        with self.__robots_possession_lock:
+            self.__robots_possession.remove(item)
+
+    def __place_object(
+        self, request: PlaceObject.Request, response: PlaceObject.Response
+    ):
+        """
+        __place_object is the service callback for ROS requests to
+        place an object.
+        """
+        self.get_logger().debug(request.item_name)
+
+        target = request.object.lower()
+
+        # Do we have the item in our posession?
+        with self.__robots_possession_lock:
+            item = None
+            for i in self.__robots_possession:
+                if i.name.lower() == target or i.label.lower() == target:
+                    item = i
+                    break
+        if item is None:
+            response.success = False
+            response.status_message = (
+                f"Could not find item {target} within robot's possession"
+            )
+            return response
+
+        self.place_item(item)
+
+        response.success = True
+
+        return response
 
     def __update_robot_pose(self, odometry: Odometry):
         """
@@ -176,40 +299,12 @@ class Litterbug(Node):
 
         return phi, theta, psi
 
-    def __add_world_item(self, item: Item):
-        """
-        __add_world_item adds an item to the world
-        """
-        with self.__world_items_lock:
-            self.__world_items.append(item)
-
-    def __remove_world_item(self, item: Item):
-        """
-        __remove_world_item removes an item from the world
-        """
-        with self.__world_items_lock:
-            self.__world_items.remove(item)
-
     def __get_world_items(self) -> List[Item]:
         """
         __get_world_items returns a list of items in the world
         """
         with self.__world_items_lock:
             return self.__world_items
-
-    def __add_robot_item(self, item: Item):
-        """
-        __add_robot_item adds an item to the robot's possession
-        """
-        with self.__robots_possession_lock:
-            self.__robots_possession.append(item)
-
-    def __remove_robot_item(self, item: Item):
-        """
-        __remove_robot_item removes an item from the robot's possession
-        """
-        with self.__robots_possession_lock:
-            self.__robots_possession.remove(item)
 
     def __distance(self, a: Tuple[float, float], b: Tuple[float, float]) -> float:
         """
@@ -392,6 +487,35 @@ class Litterbug(Node):
 
         return items
 
+    def update_items_locations(self):
+        """
+        Requests from the world gazebo model the list of
+        current models and their poses. Then it updates
+        the existing catalog of items in its inventory based
+        on its associated ID and new position. Thus if we
+        bump an object and move it, we can still track its
+        presence throughout the simulation.
+        """
+        # We start by requesting from gazebo the list
+        # of all current models
+        updated_items = self.__gazebo.get_model_list()
+
+        # To prevent multiple iterations, we will use a dict for
+        # rapid reference of poses (position, orientation)
+        updates: Dict[
+            str, Tuple[Tuple[float, float, float], Tuple[float, float, float, float]]
+        ] = {}
+        for item in updated_items:
+            updates[item.name] = (item.origin, item.orientation)
+
+        # Now we iterate through known items and update their
+        # position and orientation as needed.
+        with self.__world_items_lock:
+            for item in self.__world_items:
+                if item.name in updates:
+                    item.origin = updates[item.name][0]
+                    item.orientation = updates[item.name][1]
+
 
 class CanNotInteractWithObject(Exception):
     """
@@ -435,3 +559,18 @@ class IntervalEvent:
                     break
             self.func(*self.args, **self.kwargs)
             sleep(self.interval)
+
+
+class CanNotPickUpObject(Exception):
+    """
+    CanNotPickUp is an exception that is raised when the robot
+    attempts to pick up an object that it can not pick up. This
+    is typically because the object is not within range.
+    """
+
+    def __init__(self, item: Item, reason: str):
+        self.item = item
+        self.reason = reason
+
+    def __str__(self):
+        return f"Can not pick up {self.item} - {self.reason}"
