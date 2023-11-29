@@ -384,7 +384,7 @@ class Litterbug(Node):
                 print(f"sees - {item}")
                 self.__object_spotted_publisher.publish(
                     ObjectSpotted(
-                        name=item.name,
+                        description=item.name,
                         x=x,
                         y=y,
                         z=z,

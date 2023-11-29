@@ -310,44 +310,10 @@ class Map:
         with any occupied cells. We modify the algorithm to handle
         a variable line thickness per settings of the map.
         """
-
-        # ogorigin = origin
-        # ogtarget = target
-        # # Convert origin and target to pixel coordinates
-        # # origin = self.__meter_coordinates_to_pixel_coordinates(origin)
-        # # target = self.__meter_coordinates_to_pixel_coordinates(target)
-
-        # origin = (
-        #     int((origin[0] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((origin[0] - self.origin[1]) / self.__resolution),
+        # center = (
+        #     int(0 - self.origin[0] / self.__resolution),
+        #     self.map.shape[0] - int(0 - self.origin[1] / self.__resolution),
         # )
-        # target = (
-        #     int((target[0] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((target[0] - self.origin[1]) / self.__resolution),
-        # )
-
-        # origin = (
-        #     int((origin[1] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((origin[0] - self.origin[0]) / self.__resolution),
-        # )
-        # target = (
-        #     int((target[1] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((target[0] - self.origin[0]) / self.__resolution),
-        # )
-
-        # origin = (
-        #     int((origin[1] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((origin[0] - self.origin[0]) / self.__resolution),
-        # )
-
-        print(">>>", origin, target, self.__resolution)
-        # center = (44, 43)
-        # origin = (65, 57)
-        # target = (65, 22)
-        center = (
-            int(0 - self.origin[0] / self.__resolution),
-            self.map.shape[0] - int(0 - self.origin[1] / self.__resolution),
-        )
 
         origin = (
             int((origin[0] - self.origin[0]) / self.__resolution),
@@ -359,138 +325,40 @@ class Map:
             self.map.shape[0] - int((target[1] - self.origin[1]) / self.__resolution),
         )
 
-        # robot_pixel_x = int((origin[0] - self.origin[0]) / 0.05)
-        # robot_pixel_y = self.map.shape[0] - int((origin[1] - self.origin[1]) / 0.05)
-        # origin = (robot_pixel_x, robot_pixel_y)
+        # print(self.origin)
+        # print("center", center)
+        # print("origin", origin)
+        # print("target", target)
 
-        # target = (
-        #     int(target[0] - self.origin[0] / self.__resolution),
-        #     self.map.shape[0] - int(target[1] - self.origin[1] / self.__resolution),
-        # )
-        print(self.origin)
-        print("center", center)
-        print("origin", origin)
-        print("target", target)
+        # img = self.to_rgb()
+        # print("Size check", img.shape, self.map.shape)
+        # print("origin", origin)
+        # print("target", target)
+        # cv2.circle(img, origin, 3, (0, 0, 255), -1)
+        # cv2.circle(img, target, 3, (0, 255, 0), -1)
+        # cv2.circle(img, center, 3, (255, 0, 0), -1)
 
-        # # Get the cells that the line passes through
-        # # cells = self.line(origin, target)
-        # cells = self.line(
-        #     (origin[1], origin[0]),
-        #     (target[1], target[0]),
-        # )
-        # print("***** cells *****")
-        # print(cells)
-        # print("**********")
-
-        img = self.to_rgb()
-        print("Size check", img.shape, self.map.shape)
-        print("origin", origin)
-        print("target", target)
-        cv2.circle(img, origin, 3, (0, 0, 255), -1)
-        cv2.circle(img, target, 3, (0, 255, 0), -1)
-        cv2.circle(img, center, 3, (255, 0, 0), -1)
-
-        # cv2.circle(img, (ogorigin[1], ogorigin[0]), 1, (0, 0, 255), -1)
-        # cv2.circle(img, (ogtarget[1], ogtarget[0]), 1, (0, 255, 0), -1)
-
-        # cv2.circle(
-        #     img,
-        #     # (
-        #     #     int((ogorigin[1] - self.origin[0]) / self.__resolution),
-        #     #     img.shape[1] - int((ogorigin[0] - self.origin[1]) / self.__resolution),
-        #     # ),
-        #     ogorigin,
-        #     ogtarget,
-        #     3,
-        #     (0, 0, 255),
-        #     1,
-        # )
-        # cv2.circle(
-        #     img,
-        #     (
-        #         int((ogtarget[1] - self.origin[0]) / self.__resolution),
-        #         img.shape[1] - int((ogtarget[0] - self.origin[1]) / self.__resolution),
-        #     ),
-        #     3,
-        #     (0, 255, 0),
-        #     1,
-        # )
-
-        # robot_pixel_x = int((pose[0] - self.__map.origin[0]) / 0.05)
-        # robot_pixel_y = img.shape[0] - int((pose[1] - self.__map.origin[1]) / 0.05)
-        # robot_pixel_x = int((origin[0] - self.origin[1]) / self.__resolution)
-        # robot_pixel_y = self.map.shape[0] - int(
-        #     (origin[1] - self.origin[0]) / self.__resolution
-        # )
-        # for item in self.__get_world_items():
-        #     print(item.name, item.origin)
-        #     # x = int((item.origin[0] - self.__map.origin[0]) / 0.05)
-        #     # y = int((item.origin[1] - self.__map.origin[1]) / 0.05)
-        #     x = int((item.origin[0] - self.__map.origin[0]) / 0.05)
-        #     y = img.shape[0] - int((item.origin[1] - self.__map.origin[1]) / 0.05)
-        #     # print(x, y)
-        #     cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
-        #     # cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
-
-        #     # Draw the line
-        #     # cells = self.__map.line((robot_pixel_x, robot_pixel_y), (x, y))
-        #     cells = self.__map.line((robot_pixel_y, robot_pixel_x), (y, x))
-        #     # print("Cells found", len(cells))
-        #     for cell in cells:
-        #         # img[cell[1], cell[0]] = (0, 255, 0)
-        #         img[cell[0], cell[1]] = (0, 0, 255)
-
-        # robot_pixel_x = int((origin[0] - self.origin[1]) / self.__resolution)
-        # robot_pixel_y = self.map.shape[0] - int(
-        #     (origin[1] - self.origin[0]) / self.__resolution
-        # )
-        # origin = (
-        #     int((origin[0] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((origin[0] - self.origin[1]) / self.__resolution),
-        # )
-        # target = (
-        #     int((target[0] - self.origin[1]) / self.__resolution),
-        #     self.map.shape[0] - int((target[0] - self.origin[1]) / self.__resolution),
-        # )
-
-        # target_pixel_x = int((target[0] - self.origin[1]) / self.__resolution)
-        # target_pixel_y = self.map.shape[0] - int(
-        #     (target[1] - self.origin[0]) / self.__resolution
-        # )
-
-        # cells = self.line(
-        #     (robot_pixel_y, robot_pixel_x), (target_pixel_y, target_pixel_x)
-        # )
-
+        # Get the cells that the line passes through
         cells = self.line((origin[1], origin[0]), (target[1], target[0]))
 
         # Now determine if any of the cells in our map are
         # mark OCCUPIED; if so, return False
         for cell in cells:
-            try:
-                # img[(cell[1], cell[0])] = (255, 0, 0)
-                # img[cell] = (255, 0, 0)
-                img[cell[0], cell[1]] = (0, 0, 255)
-                if self.map[cell] == OCCUPIED:
-                    print("Would trigger")
-                # raise "triggered!"
-                # else:
-                #     print("no trigger")
-            except IndexError as e:
-                print("exception", cell)
-                # This is due to a weird spacing issue I don't have
-                # time to debug atm.
-                pass
+            # try:
+            # img[cell[0], cell[1]] = (0, 0, 255)
+            if self.map[cell] == OCCUPIED:
+                return False
+            # except IndexError as e:
+            #     print("exception", cell)
+            #     # This is due to a weird spacing issue I don't have
+            #     # time to debug atm.
+            #     pass
 
+        # raise "Boop"
         # img = self.resize_img(img, 800)
         # cv2.imshow("Map", img)
         # cv2.waitKey()
-
-        # raise "Boop"
-        img = self.resize_img(img, 800)
-        cv2.imshow("Map", img)
-        cv2.waitKey()
-        raise "crash"
+        # raise "crash"
 
         return True
 
