@@ -17,6 +17,16 @@ MODEL_TO_USE = "gpt-4"
 
 
 class LLM_Object:
+    '''This is a class for an LLM object.  It is used 3 times
+    by the interpreter.  The primary is the refiner
+    This checks the initial request for a direct object
+    request and if not, asks clarifying questions in a chat
+    format to obtain a response from which an object can be 
+    ascertained.  The secondisntance is a judge that takes
+    the user input/response and asks an LLM with different 
+    context whether it is a searchable object.  Respionds with yes or no.
+    The final is an extractor which extracts and returns the object and 
+    its modifiers.  Each instance uses its own context.'''
     def __init__(self, context_file: str, model: str, temperature: int):
         with open(os.path.join(data_dir, context_file), 'r') as file:
             context = file.read().replace('\n', '')
@@ -31,6 +41,11 @@ class LLM_Object:
 
 
 class InterpreterNode(Node):
+    '''This is the iterpreter node designed to interpret
+    va chat if necessary the target object that the user
+    wants.  It publishes the target_message.  As part of user 
+    inpout, it subscribes to user_request and in response
+    publishes clarifying_question if necessary'''
     def __init__(self):
         super().__init__('interpreter')
         self.get_logger().info("Terp Started")
