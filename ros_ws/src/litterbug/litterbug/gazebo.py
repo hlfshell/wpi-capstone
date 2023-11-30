@@ -1,3 +1,4 @@
+from __future__ import annotations
 from time import sleep
 from typing import List, Tuple
 
@@ -28,6 +29,10 @@ class Gazebo(Node):
         self.__get_entity_state_client = self.create_client(
             GetEntityState, "/gazebo/get_entity_state"
         )
+        # Test
+        self.__get_entity_exists_client = self.create_client(
+            GetEntityState, "/gazebo/get_entity_state"
+        )
 
     def wait_for_ready(self):
         """
@@ -37,6 +42,7 @@ class Gazebo(Node):
         self.__delete_entity_client.wait_for_service()
         self.__get_model_list_client.wait_for_service()
         self.__get_entity_state_client.wait_for_service()
+        self.__get_entity_exists_client.wait_for_service()
 
     def spawn_item(self, item: Item):
         """
@@ -76,7 +82,7 @@ class Gazebo(Node):
         request = GetEntityState.Request()
         request.name = item.name
 
-        future = self.__get_entity_state_client.call_async(request)
+        future = self.__get_entity_exists_client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
         response = future.result()
 
@@ -166,6 +172,13 @@ class Gazebo(Node):
         """
         items = self.get_model_list()
         Item.to_csv(items, filepath)
+
+    def clone(self) -> Gazebo:
+        """
+        Returns a clone of the current Gazebo instance
+        with separate clients.
+        """
+        return Gazebo(self.__models_dir)
 
     def test(self):
         can = Item(

@@ -1,11 +1,11 @@
 import math
 from threading import Lock, Thread
 from time import sleep
-from typing import Callable, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 from capstone_interfaces.msg import ObjectSpotted
-from capstone_interfaces.srv import PickupObject, PlaceObject
+from capstone_interfaces.srv import GiveObject, PickUpObject
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 
@@ -89,26 +89,22 @@ class Litterbug(Node):
             topic="/object_spotted",
             qos_profile=10,  # Keep last
         )
-        self.__vision_checker = IntervalEvent(
-            interval=1.0 / vision_fps,
-            func=self.vision_scan,
-        )
-        self.__vision_checker.start()
-        self.__object_location_updater = IntervalEvent(
-            interval=1.0 / 5.0,
-            func=self.update_items_locations,
-        )
-        self.__object_location_updater.start()
+
+        # Emulate our camera at the set fps
+        self.create_timer(1.0 / vision_fps, self.vision_scan)
+        # Track the changes in the world's objects at 5Hz
+        # so we react to them as we'd expect w/ interactions
+        self.create_timer(1.0 / 5.0, self.update_items_locations)
 
         # Services for interaction requests
         self.__pickup_service = self.create_service(
-            srv_type=PickupObject,
-            srv_name="/pickup_object",
+            srv_type=PickUpObject,
+            srv_name="pickup_object",
             callback=self.__pickup_object,
         )
         self.__place_service = self.create_service(
-            srv_type=PlaceObject,
-            srv_name="/place_object",
+            srv_type=GiveObject,
+            srv_name="place_object",
             callback=self.__place_object,
         )
 
@@ -164,18 +160,19 @@ class Litterbug(Node):
             with self.__robots_possession_lock:
                 # Remove the item from the world items
                 self.__world_items.remove(item)
+                self.__gazebo.delete_item(item)
 
                 # Add it to our robot posessions
                 self.__robots_possession.append(item)
 
     def __pickup_object(
-        self, request: PickupObject.Request, response: PickupObject.Response
+        self, request: PickUpObject.Request, response: PickUpObject.Response
     ):
         """
         __pickup_object is the ROS service callback to pick up
         and object
         """
-        self.get_logger().debug(request.item_name)
+        self.get_logger().debug(request.object)
 
         target = request.object.lower()
 
@@ -221,13 +218,13 @@ class Litterbug(Node):
             self.__robots_possession.remove(item)
 
     def __place_object(
-        self, request: PlaceObject.Request, response: PlaceObject.Response
+        self, request: GiveObject.Request, response: GiveObject.Response
     ):
         """
         __place_object is the service callback for ROS requests to
         place an object.
         """
-        self.get_logger().debug(request.item_name)
+        self.get_logger().debug(request.object)
 
         target = request.object.lower()
 
@@ -499,6 +496,7 @@ class Litterbug(Node):
         # We start by requesting from gazebo the list
         # of all current models
         updated_items = self.__gazebo.get_model_list()
+        # updated_items = self.__object_tracking_node.get_model_list()
 
         # To prevent multiple iterations, we will use a dict for
         # rapid reference of poses (position, orientation)
@@ -545,12 +543,13 @@ class IntervalEvent:
     def start(self):
         with self.__running_lock:
             self.__running = True
-        self.__thread = Thread(target=self.__start)
-        self.__thread.start()
+            self.__thread = Thread(target=self.__start)
+            self.__thread.start()
 
     def stop(self):
         with self.__running_lock:
             self.__running = False
+            self.__thread = None
 
     def __start(self):
         while True:
