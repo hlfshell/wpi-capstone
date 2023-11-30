@@ -6,6 +6,7 @@ import cv2
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
+from nav2msgs.srv import SaveMap
 from rclpy.node import Node
 
 from explorer.search import Explorer
@@ -58,6 +59,11 @@ class SearchService(Node):
 
         self.__explore_thread = Thread(target=self.explore)
         self.__explore_thread.start()
+
+        # create savemap client
+        self.client = self.create_client(SaveMap, '/map_saver/save_map')
+        self.save_req = SaveMap.Request()
+        self.future = self.client.call_async(self.save_req)
 
     def __map_callback(self, msg: OccupancyGrid):
         """
@@ -116,7 +122,7 @@ class SearchService(Node):
         img = explorer.generate_debug_map_image(size=800)
         cv2.imwrite(f"logs/debug_map_{self.index}.png", img)
 
-        return goal,explorer
+        return goal
 
     def explore(self):
         self.index = 0
@@ -131,15 +137,38 @@ class SearchService(Node):
             # Delay a bit between checks
             sleep(5)
 
-            goal,explorer = self.get_next_goal()
+            goal = self.get_next_goal()
             if goal is None:
                 print("Complete!")
                 # save off explorer.map as OccupancyGrid to ~/ros_ws/data/current_map
-                explorer.save_map()
+                self.save_map()
                 break
 
             print("Sending to", goal)
             self.__send_goal(goal)
+
+    def save_map(self):
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for the save_map service...')
+        self.save_req.map_topic = "map"
+        self.save_req.map_url = "~/ros_ws/current_map"
+        self.save_req.map_mode = "trinary"
+        while rclpy.ok():
+            rclpy.spin_until_future_complete(self)
+            if self.future.done():
+                try:
+                    response = self.future.result()
+                except Exception as e:
+                    self.get_logger().info(
+                        'Service call failed %r' % (e,))
+                else:
+                    if response.success:
+                        self.get_logger().info('Successfully saved map')
+                    else:
+                        self.get_logger().info('Failed to save map')
+                break
+
+            rclpy.shutdown()
 
 
 def main(args=None):
