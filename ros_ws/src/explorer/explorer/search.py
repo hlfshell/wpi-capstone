@@ -2,7 +2,9 @@ from typing import Dict, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+import rclpy
 from nav_msgs.msg import OccupancyGrid
+from nav2msgs.srv import SaveMap
 
 from explorer.constants import FREE, OCCUPIED, UNKNOWN
 from explorer.utils import Queue, occupancy_grid_to_ndarray
@@ -50,6 +52,33 @@ class Explorer:
 
         if self.debug:
             self.__debug_map = self.generate_map_image()
+        # create savemap client
+        self.client = self.create_client(SaveMap, '/map_saver/save_map')
+        self.save_req = SaveMap.Request()
+        self.future = self.client.call_async(self.req)
+
+    def save_map(self):
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for the save_map service...')
+        self.save_req.map_topic = "map"
+        self.save_req.map_url = "~/ros_ws/current_map"
+        self.save_req.map_mode = "trinary"
+        while rclpy.ok():
+            rclpy.spin_until_future_complete(self)
+            if self.future.done():
+                try:
+                    response = self.future.result()
+                except Exception as e:
+                    self.get_logger().info(
+                        'Service call failed %r' % (e,))
+                else:
+                    if response.success:
+                        self.get_logger().info('Successfully saved map')
+                    else:
+                        self.get_logger().info('Failed to save map')
+                break
+
+            rclpy.shutdown()
 
     def __process_maps(self):
         """
