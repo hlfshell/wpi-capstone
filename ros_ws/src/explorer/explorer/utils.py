@@ -5,8 +5,14 @@ import netpbmfile
 import numpy as np
 from nav_msgs.msg import MapMetaData, OccupancyGrid
 
-from explorer.constants import (FREE, FREE_PGM, OCCUPIED, OCCUPIED_PGM,
-                                UNKNOWN, UNKNOWN_PGM)
+from explorer.constants import (
+    FREE,
+    FREE_PGM,
+    OCCUPIED,
+    OCCUPIED_PGM,
+    UNKNOWN,
+    UNKNOWN_PGM,
+)
 
 
 class Queue:
@@ -63,7 +69,7 @@ def occupancy_grid_to_ndarray(occupancy_grid: OccupancyGrid) -> np.ndarray:
     # sizes here to prevent reading the map being read in a
     # corrupted manner for non-square maps
     map = np.array(occupancy_grid.data).reshape(
-        occupancy_grid.info.height, occupancy_grid.info.width
+        occupancy_grid.info.width, occupancy_grid.info.height
     )
 
     # Sometimes the occupancy grid maps represent not a 1 for
