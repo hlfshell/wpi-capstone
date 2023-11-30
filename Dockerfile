@@ -80,6 +80,9 @@ RUN tar -xf vscode_cli.tar.gz
 RUN mv code /usr/local/bin/
 RUN apt install -y python3-pip
 
+# Add the installation of ultralytics
+RUN pip3 install ultralytics
+
 COPY ./envs/ros_entrypoint.sh /
 RUN chmod +x /ros_entrypoint.sh
 
