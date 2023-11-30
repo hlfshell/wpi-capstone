@@ -22,7 +22,8 @@ class SearchService(Node):
     as defined by the Explorer node.
 
     It subscribes to /map and /robot_pose, publishing to
-    /goal_pose
+    /goal_pose.  It uses the /map_server/map_saver/save_map
+    service to save the map.
     """
 
     def __init__(self):
