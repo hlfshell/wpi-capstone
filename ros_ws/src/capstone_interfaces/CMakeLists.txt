@@ -31,6 +31,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/PlannerQuery.srv"
   "msg/ObjectSpotted.msg"
   "msg/StateObject.msg"
+  "srv/PickUpObject.srv"
+  "srv/GiveObject.srv"
   DEPENDENCIES builtin_interfaces
 )
 
