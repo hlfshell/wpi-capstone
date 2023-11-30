@@ -1,16 +1,10 @@
 <?xml version="1.0"?>
 <robot name="fetch" xmlns:xacro="http://ros.org/wiki/xacro">
-  <link name="dummy_link"/>
+  <!-- <link name="dummy_link"/>
   <joint name="dummy_joint" type="fixed">
     <parent link="dummy_link"/>
     <child link="base_link"/>
-  </joint>
-  <link name="base_footprint">
-  <joint name="base_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0" /> <!-- May need to edit z to be at the ground-->
-    <parent link="base_link" />
-    <child link="base_footprint" />
-  </joint>
+  </joint> -->
   
   <link name="base_link" >
     <inertial>
@@ -41,6 +35,15 @@
       </geometry>
     </collision>
   </link>
+
+  <link name="base_footprint">
+  </link>
+  <joint name="base_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0" /> <!-- May need to edit z to be at the ground-->
+    <parent link="base_link" />
+    <child link="base_footprint" />
+  </joint>
+
   <!-- May need to add 4 casters-->
   <link name="r_wheel_link">
     <inertial>
@@ -675,7 +678,7 @@
   It is used in conjunction with ROS2 Control to control the robot's movements.
 -->
 
- <!-- <ros2_control name="GazeboSimSystem" type="system">
+ <ros2_control name="GazeboSimSystem" type="system">
   <hardware>
     <plugin>gazebo_ros2_control/GazeboSystem</plugin>
   </hardware>
@@ -703,7 +706,7 @@
   <joint name="shoulder_lift_joint">
     <command_interface name="position"/>
     <state_interface name="position">
-      <param name="initial_value">0.0</param>
+      <param name="initial_value">1.5</param>
     </state_interface>
     <state_interface name="velocity"/>
   </joint>
@@ -717,7 +720,7 @@
   <joint name="elbow_flex_joint">
     <command_interface name="position"/>
     <state_interface name="position">
-      <param name="initial_value">0.0</param>
+      <param name="initial_value">-2.2</param>
     </state_interface>
     <state_interface name="velocity"/>
   </joint>
@@ -731,7 +734,7 @@
   <joint name="wrist_flex_joint">
     <command_interface name="position"/>
     <state_interface name="position">
-      <param name="initial_value">0.0</param>
+      <param name="initial_value">-1.25</param>
     </state_interface>
     <state_interface name="velocity"/>
   </joint>
@@ -797,12 +800,13 @@
       <param name="initial_value">0.0</param>
     </state_interface>
     <state_interface name="velocity"/>
-  </joint> -->
- <!-- <gazebo>
+  </joint>
+ </ros2_control>
+ <gazebo>
   <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
     <parameters>$(find fetch_description)/config/fetch_description_controllers.yaml</parameters>
   </plugin>
- </gazebo> -->
+ </gazebo>
 
 </robot>
 
