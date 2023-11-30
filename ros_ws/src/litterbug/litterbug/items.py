@@ -21,13 +21,13 @@ class Item:
         name: str,
         label: str,
         model: str,
-        placement: Tuple[float, float, float],
+        origin: Tuple[float, float, float],
         orientation: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
     ):
         self.name = name
         self.label = label
         self.model = model
-        self.origin = placement
+        self.origin = origin
         self.orientation = orientation
 
     def __str__(self):
@@ -44,7 +44,7 @@ class Item:
                         name=name,
                         label=label,
                         model=model,
-                        placement=(float(x), float(y), float(z)),
+                        origin=(float(x), float(y), float(z)),
                         orientation=(float(qx), float(qy), float(qz), float(qw)),
                     )
                 )
