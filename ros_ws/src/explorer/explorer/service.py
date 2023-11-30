@@ -54,10 +54,6 @@ class SearchService(Node):
             qos_profile=10,  # Keep last
         )
 
-        self.__ignore_list: Dict[Tuple[float, float], int] = {}
-        self.__ignore_at_n_attempts = 5
-        self.__ignore_list_lock = Lock()
-
         self.index = 0
 
         self.__explore_thread = Thread(target=self.explore)
@@ -95,20 +91,6 @@ class SearchService(Node):
 
         self.__goal_publisher.publish(pose)
 
-    def __generate_ignore_list(self) -> [Tuple[float, float]]:
-        """
-        Generates a list of coordinates to ignore based on
-        repeated failed attempts to reach.
-        """
-        with self.__ignore_list_lock:
-            ignore_list = [
-                k
-                for k, v in self.__ignore_list.items()
-                if v >= self.__ignore_at_n_attempts
-            ]
-
-            return ignore_list
-
     def get_next_goal(self) -> Optional[PoseStamped]:
         """
         Returns the next goal pose for the robot to move to,
@@ -128,9 +110,7 @@ class SearchService(Node):
                 print("No map!")
             return None
 
-        ignore_list = self.__generate_ignore_list()
-
-        explorer = Explorer(map, pose, ignore_list=ignore_list, debug=True)
+        explorer = Explorer(map, pose, debug=True)
         goal = explorer.explore()
 
         img = explorer.generate_debug_map_image(size=800)
@@ -155,11 +135,6 @@ class SearchService(Node):
             if goal is None:
                 print("Complete!")
                 break
-
-            if goal in self.__ignore_list:
-                self.__ignore_list[goal] += 1
-            else:
-                self.__ignore_list[goal] = 1
 
             print("Sending to", goal)
             self.__send_goal(goal)

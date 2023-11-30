@@ -22,8 +22,6 @@ class Explorer:
         minimum_distance_meters: float = 1.0,
         minimum_unknown_value: float = -10,
         maximum_obstacle_value: float = 3,
-        ignore_list: Optional[list[Tuple[int, int]]] = None,
-        minimum_ignore_distance: float = 0.5,
         robot_radius: float = 0.04,
         debug: bool = False,
     ):
@@ -39,12 +37,6 @@ class Explorer:
         self.maximum_obstacle_value = maximum_obstacle_value
         self.robot_radius = robot_radius
         self.debug = debug
-
-        if ignore_list is None:
-            ignore_list = []
-        self.__ignore_list = ignore_list
-        self.__minimum_ignore_distance = minimum_ignore_distance
-
         self.current_location = robot_location
         self.current_location_pixels = self.__meters_coordinates_to_pixels(
             robot_location
@@ -130,7 +122,6 @@ class Explorer:
         #   obstacle map
         # 4. Be a minimum distance away from the current location
         # 5. Touches at least one other known spot
-        # 6. Not within a configured distance of any ignored locations
         current_value = self.map[current]
         unknown_value = self.__unknown_map[current]
         obstacle_value = self.__obstacle_map[current]
@@ -143,7 +134,6 @@ class Explorer:
             if self.map[neighbor] == FREE:
                 has_known_neighbor = True
                 break
-        nearby_ignored_location = self.__check_ignore_list_proximity(current)
         obstacle_free = self.__check_chonk_radius(current)
 
         if (
@@ -152,7 +142,6 @@ class Explorer:
             and obstacle_value <= self.maximum_obstacle_value
             and current_distance >= self.minimum_distance
             and has_known_neighbor
-            and nearby_ignored_location is None
             and obstacle_free
         ):
             # We have found a suitable target location
@@ -255,28 +244,6 @@ class Explorer:
                     return False
 
         return True
-
-    def __check_ignore_list_proximity(
-        self, location: Tuple[int, int]
-    ) -> Optional[Tuple[int, int]]:
-        """
-        __check_ignore_list_proximity checks if the given location is
-        within a set distance (__minimum_ignore_distance)) away from
-        any of the ignored locations. If it is not, None is returned,
-        otherwise the closet match is. Note that the distance is in
-        meters whereas our coordinates are stored in pixels, so
-        additional conversion is required.
-        """
-        distances = [
-            self.distance(self.__pixels_to_meters(location), coordinate)
-            for coordinate in self.__ignore_list
-        ]
-
-        for index, distance in enumerate(distances):
-            if distance <= self.__minimum_ignore_distance:
-                return self.__ignore_list[index]
-
-        return None
 
     def __get_neighbors(self, origin: Tuple[int, int]) -> list[Tuple[int, int]]:
         """
