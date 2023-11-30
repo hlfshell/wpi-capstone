@@ -127,7 +127,7 @@ class Gazebo(Node):
                 name=model_name,
                 label="",
                 model="",
-                placement=position,
+                origin=position,
                 orientation=orientation,
             )
             items.append(item)
