@@ -11,6 +11,7 @@ from rclpy.node import Node
 
 from explorer.search import Explorer
 
+
 class SaveMapClient(Node):
     def __init__(self):
         super().__init__('save_map_client')
@@ -18,10 +19,9 @@ class SaveMapClient(Node):
         while not self.client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Waiting for the save_map service...')
         self.req = SaveMap.Request()
-        with self.req:
-            map_topic = "map"
-            map_url = "~/ros_ws/current_map"
-            map_mode = "trinary"
+        self.req.map_topic = "map"
+        self.req.map_url = "~/ros_ws/current_map"
+        self.req.map_mode = "trinary"
 
         self.future = self.client.call_async(self.req)
 
@@ -42,6 +42,7 @@ class SaveMapClient(Node):
                 break
 
             rclpy.shutdown()
+
 
 class SearchService(Node):
     """
@@ -168,7 +169,7 @@ class SearchService(Node):
                 print("Complete!")
                 # save off explorer.map as OccupancyGrid to ~/ros_ws/data/current_map
                 # /map_saver/save_map -f "~/ros_ws/data/current_map"
-                map_saver=SaveMapClient()
+                map_saver = SaveMapClient()
                 map_saver.save_map()
                 break
 
