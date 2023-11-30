@@ -83,6 +83,10 @@ class Litterbug(Node):
         self.__robot_location: Tuple[float, float] = (0.0, 0.0)
         self.__robot_orientation: float = 0.0  # radians
 
+        # Track the human (We're assuming one)
+        self.__human_position_lock = Lock()
+        self.__human_position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+
         # Vision and handling
         self.__object_spotted_publisher = self.create_publisher(
             msg_type=ObjectSpotted,
@@ -105,7 +109,7 @@ class Litterbug(Node):
         self.__place_service = self.create_service(
             srv_type=GiveObject,
             srv_name="place_object",
-            callback=self.__place_object,
+            callback=self.__give_object,
         )
 
     def wait_for_ready(self):
@@ -176,6 +180,13 @@ class Litterbug(Node):
 
         target = request.object.lower()
 
+        # First confirm that we're not trying to break the first law
+        # of robotics and pick up our dear human
+        if target == "human":
+            response.success = False
+            response.status_message = "Cannot pick up a human - that's rude"
+            return response
+
         # Get a list of all items we can interact with
         interactable = self.interactable_objects()
 
@@ -204,11 +215,22 @@ class Litterbug(Node):
 
         return response
 
-    def place_item(self, item: Item):
+    def give_item(self, item: Item):
         """
-        place_item handles giving the human the object
+        give_item handles giving the human the object
         that the robot is carrying
         """
+
+        # Are we close to the human to give them the object?
+        with self.__human_position_lock:
+            if (
+                self.__distance_from_robot(self.__human_position)
+                > self.__interaction_range
+            ):
+                raise CanNotGiveObject(
+                    item,
+                    "Human is not within interaction range",
+                )
 
         # Simply remove the object from the robot's possession for now;
         # perhaps in the future there could be actual placement logic,
@@ -217,12 +239,10 @@ class Litterbug(Node):
         with self.__robots_possession_lock:
             self.__robots_possession.remove(item)
 
-    def __place_object(
-        self, request: GiveObject.Request, response: GiveObject.Response
-    ):
+    def __give_object(self, request: GiveObject.Request, response: GiveObject.Response):
         """
-        __place_object is the service callback for ROS requests to
-        place an object.
+        __give_object is the service callback for ROS requests to
+        give an object to the human
         """
         self.get_logger().debug(request.object)
 
@@ -242,7 +262,12 @@ class Litterbug(Node):
             )
             return response
 
-        self.place_item(item)
+        try:
+            self.give_item(item)
+        except CanNotGiveObject as e:
+            response.success = False
+            response.status_message = str(e)
+            return response
 
         response.success = True
 
@@ -510,6 +535,15 @@ class Litterbug(Node):
         # position and orientation as needed.
         with self.__world_items_lock:
             for item in self.__world_items:
+                # If it's a human, we update the human's position
+                # and not an item in the world inventory since we
+                # can't interact with it beyond giving stuff
+                if item.label == "human":
+                    with self.__human_position_lock:
+                        self.__human_position = item.origin
+
+                    continue
+
                 if item.name in updates:
                     item.origin = updates[item.name][0]
                     item.orientation = updates[item.name][1]
@@ -573,3 +607,18 @@ class CanNotPickUpObject(Exception):
 
     def __str__(self):
         return f"Can not pick up {self.item} - {self.reason}"
+
+
+class CanNotGiveObject(Exception):
+    """
+    CanNotGiveObject is an exception that is raised when the robot
+    attempts to place an object that it can not place. This is
+    typically because the object is not within range of the human.
+    """
+
+    def __init__(self, item: Item, reason: str):
+        self.item = item
+        self.reason = reason
+
+    def __str__(self):
+        return f"Can not place {self.item} - {self.reason}"
