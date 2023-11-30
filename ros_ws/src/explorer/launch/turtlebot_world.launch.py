@@ -4,7 +4,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 
 from launch import LaunchDescription
-from launch.actions import GroupAction, IncludeLaunchDescription
+from launch.actions import GroupAction, IncludeLaunchDescription, RegisterEventHandler
 from launch.event_handlers import OnExecutionComplete
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
@@ -56,6 +56,21 @@ def generate_launch_description():
         }.items(),
     )
 
+    #Launch cartographer
+    cartographer = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [
+                get_package_share_directory("turtlebot3_cartographer"),
+                "/launch",
+                "/cartographer.launch.py",
+            ]
+        ),
+        launch_arguments={
+            "use_sim_time": "true",
+            "publish_period": "0.5",
+        }.items(),
+    )
+   
     # Rviz2 bringup
     rviz2 = Node(
         package="rviz2",
@@ -72,6 +87,13 @@ def generate_launch_description():
         name="explorer_node",
         output="screen",
         parameters=[],
+    )
+
+# Create a node for running our explorer application
+    mapper = Node(
+        package="nav2_map_server",
+        executable="map_saver",
+        name="map_server_node",
     )
 
     sim_group = GroupAction(actions=[gazebo])

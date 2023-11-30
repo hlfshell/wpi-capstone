@@ -6,10 +6,42 @@ import cv2
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
+from nav2msgs.srv import SaveMap
 from rclpy.node import Node
 
 from explorer.search import Explorer
 
+class SaveMapClient(Node):
+    def __init__(self):
+        super().__init__('save_map_client')
+        self.client = self.create_client(SaveMap, '/map_saver/save_map')
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for the save_map service...')
+        self.req = SaveMap.Request()
+        with self.req:
+            map_topic = "map"
+            map_url = "~/ros_ws/current_map"
+            map_mode = "trinary"
+
+        self.future = self.client.call_async(self.req)
+
+    def save_map(self):
+        while rclpy.ok():
+            rclpy.spin_once(self)
+            if self.future.done():
+                try:
+                    response = self.future.result()
+                except Exception as e:
+                    self.get_logger().info(
+                        'Service call failed %r' % (e,))
+                else:
+                    if response.success:
+                        self.get_logger().info('Successfully saved map')
+                    else:
+                        self.get_logger().info('Failed to save map')
+                break
+
+            rclpy.shutdown()
 
 class SearchService(Node):
     """
@@ -134,6 +166,10 @@ class SearchService(Node):
             goal = self.get_next_goal()
             if goal is None:
                 print("Complete!")
+                # save off explorer.map as OccupancyGrid to ~/ros_ws/data/current_map
+                # /map_saver/save_map -f "~/ros_ws/data/current_map"
+                map_saver=SaveMapClient()
+                map_saver.save_map()
                 break
 
             print("Sending to", goal)
