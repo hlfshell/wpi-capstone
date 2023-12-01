@@ -3,10 +3,9 @@ from typing import Tuple
 
 import netpbmfile
 import numpy as np
-from nav_msgs.msg import MapMetaData, OccupancyGrid
-
 from explorer.constants import (FREE, FREE_PGM, OCCUPIED, OCCUPIED_PGM,
                                 UNKNOWN, UNKNOWN_PGM)
+from nav_msgs.msg import MapMetaData, OccupancyGrid
 
 
 class Queue:
