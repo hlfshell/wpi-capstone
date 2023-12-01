@@ -1,5 +1,4 @@
 import os
-#import launch
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -10,9 +9,12 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    
     launch_file_dir = os.path.join(
         get_package_share_directory("turtlebot3_gazebo"), "launch"
     )
+
+    pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
 
     house_world_path = os.path.join(
         get_package_share_directory("aws-robomaker-small-house-world"),
@@ -25,10 +27,13 @@ def generate_launch_description():
         "map.yaml",
     )
 
+    params_file = os.path.join(get_package_share_directory("aws-robomaker-small-house-world"), 
+                               "param", 
+                               "tb3_nav_params.yaml"
+    )
+
     config_dir = os.path.join(get_package_share_directory("explorer"), "config")
     rviz_config = os.path.join(config_dir, "nav.rviz")
-    pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
-    params_file = os.path.join(get_package_share_directory("autonomous_tb3"), "config", "tb3_nav_params.yaml")
 
     use_sim_time = LaunchConfiguration("use_sim_time", default="true")
     x_pose = LaunchConfiguration("x_pose", default="0.0")
@@ -61,15 +66,6 @@ def generate_launch_description():
         launch_arguments={"x_pose": x_pose, "y_pose": y_pose}.items(),
     )
 
-    house_spawner = Node(
-        package="autonomous_tb3",
-        output="screen",
-        executable="sdf_spawner",
-        name="maze_spawner",
-       arguments=[house_world_path, "b", "0.0", "0.0"],
-    )
-
-    # Launch async slam toolbox
     slam = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -84,7 +80,6 @@ def generate_launch_description():
         }.items(),
     )
 
-    # Remove this if you're mapping the maze via keyboard
     nav2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -95,7 +90,7 @@ def generate_launch_description():
         ),
         launch_arguments={"map": map_file, "params_file": params_file}.items(),
     )
-
+    
     rviz = Node(
         package="rviz2",
         output="screen",
@@ -104,7 +99,6 @@ def generate_launch_description():
         arguments=["-d", rviz_config],
     )
 
-    # Create a node for running our explorer application
     explorer = Node(
         package="explorer",
         executable="explorer",
@@ -122,7 +116,6 @@ def generate_launch_description():
     ld.add_action(gzclient_cmd)
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
-    ld.add_action(house_spawner)
     ld.add_action(nav_group)
     ld.add_action(explorer)
     ld.add_action(rviz) 
