@@ -32,7 +32,8 @@ setup(
             'add_object_service = query_services.new_object_service:main',
             'add_object_client = query_services.new_object_client:main',
 
-            'qa_service = query_services.qa_service:main'
+            'qa_service = query_services.qa_service:main',
+            'new_object = query_services.vision_subscriber:main'
 
         ],
     },

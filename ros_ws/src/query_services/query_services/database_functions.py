@@ -18,7 +18,7 @@ def create_connection(node:Node,db_file:str)->sqlite3.Connection:
 
     return conn
 
-def create_object_table(conn:sqlite3.Connection):
+def create_object_table(conn:sqlite3.Connection, node:Node):
     """ create a table from the create_table_sql statement
     :param conn: Connection object
     :param create_table_sql: a CREATE TABLE statement
@@ -36,6 +36,7 @@ def create_object_table(conn:sqlite3.Connection):
                                     
     c = conn.cursor()
     c.execute(sql_create_objects_table)
+    node.get_logger().info("Table created")
 
 def create_object(conn:sqlite3.Connection, new_object:StateObject) -> int:
     """
@@ -60,7 +61,7 @@ def create_object(conn:sqlite3.Connection, new_object:StateObject) -> int:
     conn.commit()
     return cur.lastrowid
 
-def dt2ep(datetime_str:str)->int:
+def datetime2epoch(datetime_str:str)->int:
     date = datetime_str.split()[0]
     time = datetime_str.split()[1]
     year = date.split("-")[0]
@@ -74,3 +75,32 @@ def dt2ep(datetime_str:str)->int:
     t = datetime.datetime(int(year),int(month),int(day),int(hour),int(minutes),int(seconds))
 
     return calendar.timegm(t.timetuple())
+
+def update_task(conn:sqlite3.Connection, update_object:StateObject):
+    """
+    update priority, begin_date, and end date of a task
+    :param conn:
+    :param task:
+    :return: project id
+    """
+    description = update_object.description
+    location = update_object.location
+    x = update_object.x
+    y = update_object.y
+    z = update_object.z
+    s = update_object.time_seen.sec
+    ns = update_object.time_seen.nanosec
+    timestamp_ingested = s + (ns*1e-9)
+    update_object = (description,location,x,y,z,timestamp_ingested);
+
+    sql = ''' UPDATE objects
+              SET description = ? ,
+                  location = ? ,
+                  x = ?
+                  y = ?
+                  z = ?
+                  timestamp = ?
+              WHERE id = ?'''
+    cur = conn.cursor()
+    cur.execute(sql, update_object)
+    conn.commit()

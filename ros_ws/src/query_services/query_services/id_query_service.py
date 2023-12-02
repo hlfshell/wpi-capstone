@@ -39,7 +39,7 @@ class IDQueryService(Node):
             curr_state.z = row[5]
             datetime_str = row[7] # needs to change when db is updated
             
-            epoch = database_functions.dt2ep(datetime_str)
+            epoch = database_functions.datetime2epoch(datetime_str)
             s = round(epoch)
             ms = int((epoch-s)/1e-9)
 

@@ -1,4 +1,4 @@
-int8 id
+int16 id
 string description
 string location
 float32 x

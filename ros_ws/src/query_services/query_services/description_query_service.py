@@ -37,8 +37,8 @@ class DescriptionQueryService(Node):
             curr_state.x = row[3]
             curr_state.y = row[4]
             curr_state.z = row[5]
-            given_timestamp = row[7] # change when back to new state_db
-            epoch = database_functions.dt2ep(given_timestamp)
+            given_timestamp = row[6]
+            epoch = database_functions.datetime2epoch(given_timestamp)
             s = round(epoch)
             ms = int((epoch-s)/1e-9)
 
@@ -55,9 +55,7 @@ class DescriptionQueryService(Node):
             response.states_of_objects = state_list
         else:
             self.get_logger().info("No results found")
-            state_list_0 = StateObject()
-            state_list_0.description = "No results found"
-            response.states_of_objects = [state_list_0.description]
+            response.states_of_objects = []
 
         return response
 
