@@ -2,9 +2,10 @@ from typing import Dict, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+from nav_msgs.msg import OccupancyGrid
+
 from explorer.constants import FREE, OCCUPIED, UNKNOWN
 from explorer.utils import Queue, occupancy_grid_to_ndarray
-from nav_msgs.msg import OccupancyGrid
 
 
 class Explorer:
