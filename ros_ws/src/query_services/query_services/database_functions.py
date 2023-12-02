@@ -2,7 +2,6 @@ import sqlite3
 from capstone_interfaces.msg import StateObject
 from rclpy.node import Node
 
-
 import datetime
 import calendar
 
@@ -13,7 +12,7 @@ def create_connection(node:Node,db_file:str)->sqlite3.Connection:
     try:
         conn = sqlite3.connect(db_file)
         return conn
-    except Error as e:
+    except Exception as e:
         node.get_logger().error(e)
 
     return conn
