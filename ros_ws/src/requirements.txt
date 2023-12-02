@@ -13,5 +13,6 @@ pyflakes==3.1.0
 tomli==2.0.1
 google-generativeai==0.2.1
 openai==0.28.1
+scikit-learn==1.3.2
 netpbmfile==2023.8.30
 opencv-python==4.8.1.78
