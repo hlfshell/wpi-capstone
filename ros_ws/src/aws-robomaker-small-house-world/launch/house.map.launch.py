@@ -66,20 +66,6 @@ def generate_launch_description():
         launch_arguments={"x_pose": x_pose, "y_pose": y_pose}.items(),
     )
 
-    slam = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            [
-                get_package_share_directory("slam_toolbox"),
-                "/launch",
-                "/online_async_launch.py",
-            ]
-        ),
-        launch_arguments={
-            "use_sim_time": "true",
-            "publish_period": "0.0",
-        }.items(),
-    )
-
     nav2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -99,16 +85,6 @@ def generate_launch_description():
         arguments=["-d", rviz_config],
     )
 
-    explorer = Node(
-        package="explorer",
-        executable="explorer",
-        name="explorer_node",
-        output="screen",
-        parameters=[],
-    )
-
-    nav_group = GroupAction(actions=[nav2, slam])
-
     ld = LaunchDescription()
 
     # Add the commands to the launch description
@@ -116,8 +92,7 @@ def generate_launch_description():
     ld.add_action(gzclient_cmd)
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
-    ld.add_action(nav_group)
-    ld.add_action(explorer)
+    ld.add_action(nav2)
     ld.add_action(rviz) 
 
     return ld
