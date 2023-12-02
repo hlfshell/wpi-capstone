@@ -36,6 +36,10 @@ class Action(ABC):
         call, this would send a signal to kill it. If there is no
         special logic, just have the function pass.
     clone() - a method that returns a copy of the action as necessary
+
+    Actions are expected to, if there's a return, use _set_result to
+    set the result of the action. Any exceptions raised by the
+    _execute function is saved against the action for future reference.
     """
 
     def __init__(
@@ -59,6 +63,9 @@ class Action(ABC):
 
         self.__status_lock = Lock()
         self.__status: int = 0
+
+        self.__result_lock = Lock()
+        self.__result: Optional[Any] = None
 
         self.error: Optional[Exception] = None
 
@@ -89,7 +96,9 @@ class Action(ABC):
             self.__status = EXECUTING
 
         try:
-            result: Any = self._execute(*args, **kwargs)
+            self._execute(*args, **kwargs)
+
+            result: Any = self._get_result()
 
             with self.__status_lock:
                 if self.__status == EXECUTING:
@@ -99,6 +108,22 @@ class Action(ABC):
         except Exception as e:
             self._set_error(e)
             raise e
+
+    def _set_result(self, result: Any):
+        """
+        _set_result is a helper method for the implementing class
+        that sets the result of the action.
+        """
+        with self.__result_lock:
+            self.__result = result
+
+    def _get_result(self) -> Any:
+        """
+        _get_result is a helper method for the implementing class
+        that returns the result of the action.
+        """
+        with self.__result_lock:
+            return self.__result
 
     def _cancel_check(self):
         """
