@@ -4,11 +4,12 @@ from typing import Optional, Tuple
 
 import cv2
 import rclpy
-from explorer.search import Explorer
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.srv import SaveMap
 from nav_msgs.msg import OccupancyGrid, Odometry
 from rclpy.node import Node
+
+from explorer.search import Explorer
 
 
 class SearchService(Node):
@@ -25,7 +26,10 @@ class SearchService(Node):
     service to save the map.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        save_map_file_path: str = "./map",
+    ):
         super().__init__("search_service")
 
         # Track the latest robot pose
@@ -60,10 +64,10 @@ class SearchService(Node):
         self.__explore_thread = Thread(target=self.explore)
         self.__explore_thread.start()
 
-        # create savemap client
-        self.client = self.create_client(SaveMap, '/map_saver/save_map')
-        self.save_req = SaveMap.Request()
-        self.future = self.client.call_async(self.save_req)
+        # Create savemap client
+        self.__save_map_client = self.create_client(SaveMap, "/map_saver/save_map")
+        self.__save_map_client.wait_for_service()
+        self.__save_map_file_path = save_map_file_path
 
     def __map_callback(self, msg: OccupancyGrid):
         """
@@ -140,7 +144,6 @@ class SearchService(Node):
             goal = self.get_next_goal()
             if goal is None:
                 print("Complete!")
-                # save off explorer.map as OccupancyGrid to ~/ros_ws/data/current_map
                 self.save_map()
                 break
 
@@ -148,26 +151,16 @@ class SearchService(Node):
             self.__send_goal(goal)
 
     def save_map(self):
-        # while not self.client.wait_for_service(timeout_sec=1.0):
-        #     self.get_logger().info('Waiting for the save_map service...')
-        self.save_req.wait_for_service()
-        self.save_req.map_topic = "map"
-        self.save_req.map_url = "~/ros_ws/current_map"
-        self.save_req.map_mode = "trinary"
-        future = self.save_req.call_a_asynch(SaveMap)
-        rclpy.spin_until_future_complete(self, future)
-        if future.done():
-            try:
-                response = self.future.result()
-            except Exception as e:
-                self.get_logger().info(
-                    'Service call failed %r' % (e,))
-            else:
-                if response.success:
-                    self.get_logger().info('Successfully saved map')
-                else:
-                    self.get_logger().info('Failed to save map')
-        rclpy.shutdown()
+        """
+        save_map calls out to the map_saver_server to save the
+        current map
+        """
+        request = SaveMap.Request()
+        request.map_topic = "map"
+        request.map_url = self.__save_map_file_path
+        request.map_mode = "trinary"
+
+        self.__save_map_client.call_async(request)
 
 
 def main(args=None):

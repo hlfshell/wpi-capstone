@@ -73,14 +73,21 @@ def generate_launch_description():
     )
 
     # Create a node for running our explorer application
-    mapper = Node(
-        package="nav2_map_server",
-        executable="map_saver",
-        name="map_server_node",
+    map_saver_server = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [
+                get_package_share_directory("nav2_map_server"),
+                "/launch",
+                "/map_saver_server.launch.py",
+            ]
+        ),
+        launch_arguments={
+            "use_sim_time": "true",
+        }.items(),
     )
 
     sim_group = GroupAction(actions=[gazebo])
-    nav_group = GroupAction(actions=[nav2, slam, mapper])
+    nav_group = GroupAction(actions=[nav2, slam, map_saver_server])
     ui_group = GroupAction(actions=[rviz2])
     capstone_group = GroupAction(actions=[explorer])
 
