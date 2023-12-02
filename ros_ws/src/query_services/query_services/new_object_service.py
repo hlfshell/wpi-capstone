@@ -13,7 +13,7 @@ class SpotNewObjectService(Node):
         super().__init__('spot_new_object_service')
         self.conn = database_functions.create_connection(self,r"state_db.db")
         self.srv = self.create_service(AddObject, 'add_new_object', self.add_object)
-        database_functions.create_object_table(self.conn)
+        database_functions.create_object_table(self.conn,self)
 
     def add_object(self, request, response):
      
@@ -46,8 +46,6 @@ class SpotNewObjectService(Node):
             last_row_id = database_functions.create_object(self.conn, object_to_add)
 
         response.object_state.id = last_row_id
-        if response.object_state.description == "":
-            response.object_state.description = "Element not found"
 
         self.get_logger().info(
             'Object:\n  ID: %d\n  Description: %s\n  Location: %s\n  (x,y,z): (%f,%f,%f)\n  Time: %s'

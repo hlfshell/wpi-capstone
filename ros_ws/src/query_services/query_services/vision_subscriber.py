@@ -154,19 +154,7 @@ class AddObjectNode(Node):
     def euclidean_distance(self,point1,point2):
         d = np.sqrt((point1[0]-point2[0])**2+(point1[1]-point2[1])**2+(point1[2]-point2[2])**2)
         return d
-    
-    def determine_num_clusters(self,array):
-        # Find optimum number of clusters
-        # Would like to continue looking at, but for now assumes only one of 
-        sum_of_squared_error = []
-        for k in range(1,11):
-            km = KMeans(n_clusters=1, random_state=2)
-            km.fit(array)
-            sum_of_squared_error.append(km.inertia_)
 
-        num_clusters = 1 # x value with most downward slope - Kneedle algorithm
-    
-        return num_clusters
         
 def main():
     rclpy.init()
