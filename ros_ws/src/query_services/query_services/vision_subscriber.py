@@ -35,6 +35,8 @@ class AddObjectNode(Node):
             self.get_logger().info('service not available, waiting again...')
         self.description_req = ObjectDescriptionQuery.Request()
 
+        self.get_logger().info("Subscriber Initialized")
+
     def found_object(self, info: ObjectSpotted):
         """
         Add objects from given object information:

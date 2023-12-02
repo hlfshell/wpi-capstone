@@ -25,5 +25,10 @@ def generate_launch_description():
             executable='qa_service',
             name='qa_service_node',
         ),
+        Node(
+            package='query_services',
+            executable='new_object',
+            name='add_object_subscriber_node',
+        ),
 
     ])
