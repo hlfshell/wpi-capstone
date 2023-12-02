@@ -24,7 +24,7 @@ def generate_launch_description():
     map_file = os.path.join(
         get_package_share_directory("aws-robomaker-small-house-world"),
         "maps",
-        "house.yaml",
+        "house-1.yaml",
     )
 
     params_file = os.path.join(get_package_share_directory("aws-robomaker-small-house-world"), 

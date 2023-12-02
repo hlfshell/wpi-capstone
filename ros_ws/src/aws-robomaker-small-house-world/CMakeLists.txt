@@ -4,7 +4,7 @@ project(aws-robomaker-small-house-world)
 find_package(gazebo_ros REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 
-install(DIRECTORY launch models worlds maps photos param
+install(DIRECTORY launch models worlds maps param
     DESTINATION share/${PROJECT_NAME}
 )
 
