@@ -29,6 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ObjectDescriptionQuery.srv"
   "srv/ObjectIDQuery.srv"
   "srv/PlannerQuery.srv"
+  "srv/AddObject.srv"
   "msg/ObjectSpotted.msg"
   "msg/StateObject.msg"
   "srv/PickUpObject.srv"
