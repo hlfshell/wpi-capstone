@@ -84,6 +84,17 @@ def generate_launch_description():
         }.items(),
     )
 
+    # Include this if you're mapping the maze via keyboard
+    maze_mapping = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory("slam_toolbox"),
+                "launch",
+                "online_async_launch.py",
+            )
+        ),
+    )
+
     # Remove this if you're mapping the maze via keyboard
     nav2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -113,7 +124,7 @@ def generate_launch_description():
         parameters=[],
     )
 
-    nav_group = GroupAction(actions=[nav2, slam])
+    nav_group = GroupAction(actions=[maze_mapping, slam])
 
     ld = LaunchDescription()
 
@@ -124,7 +135,7 @@ def generate_launch_description():
     ld.add_action(spawn_turtlebot_cmd)
     ld.add_action(house_spawner)
     ld.add_action(nav_group)
-    ld.add_action(explorer)
+    #ld.add_action(explorer)
     ld.add_action(rviz) 
 
     return ld
