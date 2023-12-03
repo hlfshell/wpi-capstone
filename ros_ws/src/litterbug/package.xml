@@ -3,7 +3,7 @@
 <package format="3">
   <name>litterbug</name>
   <version>0.0.1</version>
-  <description>litterbug manages simulated interaction with environmental objects (spawning and "grasping")</description>
+  <description>Litterbug handles item interaction and simulates vision</description>
   <maintainer email="kchester@gmail.com">Keith Chester</maintainer>
   <license>MIT</license>
 

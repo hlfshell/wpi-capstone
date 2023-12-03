@@ -1,9 +1,14 @@
+from sys import argv
+import argparse
 import math
+from os import path
 from threading import Lock, Thread
 from time import sleep
 from typing import Callable, Dict, List, Tuple
 
 import numpy as np
+import rclpy
+from ament_index_python.packages import get_package_share_directory
 from capstone_interfaces.msg import ObjectSpotted
 from capstone_interfaces.srv import GiveObject, PickUpObject
 from nav_msgs.msg import Odometry
@@ -54,6 +59,7 @@ class Litterbug(Node):
         fov: float = math.radians(40.0),
         vision_fps: int = 12,
         models_directory: str = "./models",
+        enable_vision_simulation: bool = True,
     ):
         super().__init__("litterbug_service")
 
@@ -64,6 +70,7 @@ class Litterbug(Node):
         self.__interaction_range = interaction_range
         self.__vision_range = vision_range
         self.__fov = fov
+        self.__enable_vision_simulation = enable_vision_simulation
 
         # World and robot inventory management
         self.__world_items_lock = Lock()
@@ -88,14 +95,16 @@ class Litterbug(Node):
         self.__human_position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
 
         # Vision and handling
-        self.__object_spotted_publisher = self.create_publisher(
-            msg_type=ObjectSpotted,
-            topic="/object_spotted",
-            qos_profile=10,  # Keep last
-        )
+        if self.__enable_vision_simulation:
+            self.__object_spotted_publisher = self.create_publisher(
+                msg_type=ObjectSpotted,
+                topic="/object_spotted",
+                qos_profile=10,  # Keep last
+            )
 
-        # Emulate our camera at the set fps
-        self.create_timer(1.0 / vision_fps, self.vision_scan)
+            # Emulate our camera at the set fps
+            self.create_timer(1.0 / vision_fps, self.vision_scan)
+
         # Track the changes in the world's objects at 5Hz
         # so we react to them as we'd expect w/ interactions
         self.create_timer(1.0 / 5.0, self.update_items_locations)
@@ -622,3 +631,35 @@ class CanNotGiveObject(Exception):
 
     def __str__(self):
         return f"Can not place {self.item} - {self.reason}"
+
+
+def main(args=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--enable-vision-simulation", type=str, default="True")
+    args, _ = parser.parse_known_args(argv)
+    enable_vision_simulation = args.enable_vision_simulation == "True"
+
+    rclpy.init()
+
+    models_dir = path.join(get_package_share_directory("litterbug"), "models")
+    maps_dir = path.join(get_package_share_directory("litterbug"), "maps")
+    items_dir = path.join(get_package_share_directory("litterbug"), "items")
+
+    map = Map.FromMapFile(f"{maps_dir}/house")
+
+    items = Item.from_csv(f"{items_dir}/items.csv")
+
+    litterbug = Litterbug(
+        items,
+        map,
+        models_directory=models_dir,
+        enable_vision_simulation=enable_vision_simulation,
+    )
+    litterbug.wait_for_ready()
+    litterbug.populate()
+
+    rclpy.spin(litterbug)
+
+
+if __name__ == "__main__":
+    main()
