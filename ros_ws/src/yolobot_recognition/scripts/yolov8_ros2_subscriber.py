@@ -18,7 +18,7 @@ class Camera_subscriber(Node):
 
         self.subscription = self.create_subscription(
             Image,
-            'rgb_cam/image_raw',
+            '/camera/image_raw',
             self.camera_callback,
             10)
         self.subscription 
