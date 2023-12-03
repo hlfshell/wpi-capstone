@@ -9,6 +9,10 @@ def generate_launch_description():
                 package="litterbug",
                 executable="litterbug_service",
                 name="litterbug_node",
+                arguments=[
+                    "--enable-vision-simulation",
+                    "True",
+                ],
             ),
         ]
     )
