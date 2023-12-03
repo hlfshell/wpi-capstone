@@ -1,5 +1,3 @@
-import netpbmfile
-
 from query_services.room import Room
 
 from typing import List, Tuple, Optional, Dict
@@ -60,7 +58,7 @@ class SegmentationMap:
         Given a set of meter coordinates, convert it to pixel coordinates
         for our segmentation map
         """
-        height = self.__map.shape[1]
+        height = self.__map.shape[0]
         return (
             int((location[0] - self.__offset[0]) / self.__resolution),
             height - int((location[1] - self.__offset[1]) / self.__resolution),
@@ -123,7 +121,36 @@ class SegmentationMap:
         """
         pixel_coords = self.__meter_coordinates_to_pixel_coordinates(location)
 
-        index = self.__map[pixel_coords[1], pixel_coords[0]]
+        index = self.__map[pixel_coords[0], pixel_coords[1]]
+
+        if index == -1 or index == 255:
+            # We now are going to take a look at the immediate surrounding pixels
+            # if possible, and count the other indexes around it. Depending on
+            # the most common index value, we will try to return that if
+            # possible. If it's still -1 or 255 we will still return None
+            counts: Dict[int, int] = {}
+            delta = 8
+            for ydelta in range(-delta, delta):
+                for xdelta in range(-delta, delta):
+                    y = pixel_coords[1] + ydelta
+                    x = pixel_coords[0] + xdelta
+
+                    # Safety checks
+                    if y < 0 or y >= self.__map.shape[0]:
+                        continue
+                    elif x < 0 or x >= self.__map.shape[1]:
+                        continue
+
+                    index = self.__map[y, x]
+                    if index not in counts:
+                        counts[index] = 0
+                    counts[index] += 1
+
+            # Get the most common index now
+            index = max(counts, key=counts.get)
+            # One last check - if we're still commonly -1 or 255, return None
+            if index == -1 or index == 255:
+                return None
 
         if index not in self.__rooms:
             return None

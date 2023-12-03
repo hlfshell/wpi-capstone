@@ -9,10 +9,17 @@ from query_services.database_functions import (
     create_connection,
     create_room_table,
 )
+from query_services.segmentation import SegmentationMap
 
 from threading import Lock
 
 from typing import List, Optional, Tuple
+
+from ament_index_python.packages import get_package_share_directory
+from os import path
+
+
+maps_dir = path.join(get_package_share_directory("query_services"), "maps")
 
 
 class RoomService(Node):
@@ -21,13 +28,16 @@ class RoomService(Node):
     a set of ROS2 services for querying about them.
     """
 
-    def __init__(self):
+    def __init__(self, map_name: str = "house"):
         super().__init__("room_service")
 
         self.__rooms_lock = Lock()
         self.__rooms: List[Room] = []
 
         self.__initiate_rooms()
+
+        map_path = path.join(maps_dir, map_name)
+        self.__segmentation_map = SegmentationMap(map_path, self.__rooms)
 
         self.__get_rooms_service = self.create_service(
             GetRooms, "/get_rooms", self.__get_room_callback
@@ -56,7 +66,7 @@ class RoomService(Node):
         """
         Returns the room associated with the given coordinates if any.
         """
-        return None
+        return self.__segmentation_map.get_room(location)
 
     def __get_room_callback(
         self, msg: GetRooms.Request, response: GetRooms.Response

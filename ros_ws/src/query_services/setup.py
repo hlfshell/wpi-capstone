@@ -15,6 +15,7 @@ setup(
             os.path.join("share", package_name, "launch"),
             glob(os.path.join("launch", "*launch.[pxy][yma]*")),
         ),
+        (os.path.join("share", package_name, "maps"), glob(os.path.join("maps", "*"))),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
