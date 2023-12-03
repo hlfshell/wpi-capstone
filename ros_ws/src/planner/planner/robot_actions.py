@@ -15,6 +15,7 @@ from threading import Lock
 
 from planner.navigation import NavigationModule
 from planner.vision import VisionModule
+from planner.state import StateModule
 
 """
 MoveToObject - move, uninterrupted if possible, to the last known location
@@ -28,7 +29,9 @@ MoveToHuman - move, uninterrupted if possible, to the last known location
     of a given human. Succeeds if the robot moves close to the human and
     if the human is still there.
 
-SearchAreaForObject - Given an object ID, will create a small search pattern
+LookAroundRobot - SPIN!
+
+SearchAreaForObject - (search area) Given an object ID, will create a small search pattern
     immediately around the robot for a given object. Will stop if the object
     is spotted or if the search area is exhausted. Use only if you are in an
     area where the object is likely to be.

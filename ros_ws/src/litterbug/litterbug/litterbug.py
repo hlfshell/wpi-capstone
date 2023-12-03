@@ -500,7 +500,7 @@ class Litterbug(Node):
                 x, y, z = self.__fuzzy_coordinates(item.origin)
                 self.__object_spotted_publisher.publish(
                     ObjectSpotted(
-                        description=item.name,
+                        description=item.label,
                         x=x,
                         y=y,
                         z=z,
