@@ -34,6 +34,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/StateObject.msg"
   "srv/PickUpObject.srv"
   "srv/GiveObject.srv"
+  "msg/Room.msg"
+  "srv/GetRooms.srv"
+  "srv/RoomByCoordinates.srv"
   DEPENDENCIES builtin_interfaces
 )
 
