@@ -63,15 +63,15 @@ class Map:
         self.__vision_angle = robot_vision_angle
 
     @staticmethod
-    def FromMapFile(path: str, robot_starting_origin: Tuple[float, float]) -> Map:
+    def FromMapFile(path: str) -> Map:
         """
         FromPGM loads a map from a pgm file and returns
         it as a numpy array, and reads the YAML file
-        accompanying the map to get the resolution. The
-        robot_starting_origin is not the pgm origin, but
-        rather the real world coordinates of the robot at
-        the moment of starting mapping, which is an
-        additional offset we must consider.
+        accompanying the map to get the resolution and
+        origin offsets. Note that it assumes we have
+        the robot_offset in the yaml file as well, which
+        is the offset of the robot from (0,0) when it
+        performed the initial mapping.
         """
         map_path = f"{path}.pgm"
         yaml_path = f"{path}.yaml"
@@ -83,10 +83,11 @@ class Map:
 
         resolution = data["resolution"]
         origin = (data["origin"][0], data["origin"][1])
+        robot_offset = (data["robot_offset"][0], data["robot_offset"][1])
 
         origin = (
-            origin[0] + robot_starting_origin[1],
-            origin[1] + robot_starting_origin[0],
+            origin[0] + robot_offset[0],
+            origin[1] + robot_offset[1],
         )
 
         # Set the map to 0 to empty, -1 to unknown, and 1 to occupied

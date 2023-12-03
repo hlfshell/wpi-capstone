@@ -1,9 +1,12 @@
 import math
+from os import path
 from threading import Lock, Thread
 from time import sleep
 from typing import Callable, Dict, List, Tuple
 
 import numpy as np
+import rclpy
+from ament_index_python.packages import get_package_share_directory
 from capstone_interfaces.msg import ObjectSpotted
 from capstone_interfaces.srv import GiveObject, PickUpObject
 from nav_msgs.msg import Odometry
@@ -622,3 +625,29 @@ class CanNotGiveObject(Exception):
 
     def __str__(self):
         return f"Can not place {self.item} - {self.reason}"
+
+
+def main():
+    rclpy.init()
+
+    models_dir = path.join(get_package_share_directory("litterbug"), "models")
+    maps_dir = path.join(get_package_share_directory("litterbug"), "maps")
+    items_dir = path.join(get_package_share_directory("litterbug"), "items")
+
+    map = Map.FromMapFile(f"{maps_dir}/house")
+
+    items = Item.from_csv(f"{items_dir}/items.csv")
+
+    litterbug = Litterbug(
+        items,
+        map,
+        models_directory=models_dir,
+    )
+    litterbug.wait_for_ready()
+    litterbug.populate()
+
+    rclpy.spin(litterbug)
+
+
+if __name__ == "__main__":
+    main()

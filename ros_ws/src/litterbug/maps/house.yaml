@@ -5,3 +5,4 @@ origin: [-9.42, -5.84, 0]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.25
+robot_offset: [0.0, 0.0, 0.0]
