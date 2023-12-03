@@ -32,6 +32,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/AddObject.srv"
   "msg/ObjectSpotted.msg"
   "msg/StateObject.msg"
+  "srv/PickUpObject.srv"
+  "srv/GiveObject.srv"
   "msg/Room.msg"
   "srv/GetRooms.srv"
   "srv/RoomByCoordinates.srv"
