@@ -80,6 +80,9 @@ RUN tar -xf vscode_cli.tar.gz
 RUN mv code /usr/local/bin/
 RUN apt install -y python3-pip
 
+# Add the installation of ultralytics
+RUN pip3 install ultralytics
+
 COPY ./envs/ros_entrypoint.sh /
 RUN chmod +x /ros_entrypoint.sh
 
@@ -98,3 +101,27 @@ WORKDIR /home/vagrant/ros_ws
 
 ENTRYPOINT [ "/bin/bash", "/ros_entrypoint.sh" ]
 CMD ["bash"]
+
+# ==========================================
+# 4. Installing TurtleBot4
+# ==========================================
+# Update package list and install Turtlebot4 packages
+RUN apt update && apt install -y \
+    ros-humble-turtlebot4-description \
+    ros-humble-turtlebot4-msgs \
+    ros-humble-turtlebot4-navigation \
+    ros-humble-turtlebot4-node \
+    ros-humble-turtlebot4-simulator/*
+
+# ==========================================
+# 5. Installing TurtleBot3
+# ==========================================
+RUN apt update && apt install -y\
+    ros-humble-turtlebot3 \
+    ros-humble-turtlebot3-gazebo/*
+
+# Set the Turtlebot3 model to automatically load
+RUN echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc 
+
+# Set the fetch_description path
+RUN echo 'export FETCH_DESCRIPTION_PATH=$(ros2 pkg prefix fetch_description --share)' >> /home/vagrant/.bashrc

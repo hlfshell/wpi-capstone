@@ -111,6 +111,23 @@ Vagrant.configure("2") do |config|
         echo "    source /home/vagrant/ros_ws/.env" >> /home/vagrant/.bashrc
         echo "fi" >> /home/vagrant/.bashrc
 
+        # Install the TurtleBot4 packages
+        apt install -y \
+          ros-humble-turtlebot4-description \
+          ros-humble-turtlebot4-msgs \
+          ros-humble-turtlebot4-navigation \
+          ros-humble-turtlebot4-node \
+          ros-humble-turtlebot4-simulator
+
+        # Install the TurtleBot3 packages
+        apt install -y ros-humble-turtlebot3 \
+          ros-humble-turtlebot3-gazebo
+
+        # Set the Turtlebot3 model to automatically load
+        echo 'export TURTLEBOT3_MODEL=waffle' >> /home/vagrant/.bashrc
+
+        # Set the fetch_description path
+        echo export FETCH_DESCRIPTION_PATH=$(ros2 pkg prefix fetch_description --share)
     SHELL
 
   end
