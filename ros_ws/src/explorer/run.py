@@ -1,5 +1,4 @@
 import rclpy
-
 from explorer.service import SearchService
 
 

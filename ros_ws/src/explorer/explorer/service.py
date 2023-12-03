@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 import cv2
 import rclpy
 from geometry_msgs.msg import PoseStamped
+from nav2_msgs.srv import SaveMap
 from nav_msgs.msg import OccupancyGrid, Odometry
 from rclpy.node import Node
 
@@ -21,10 +22,14 @@ class SearchService(Node):
     as defined by the Explorer node.
 
     It subscribes to /map and /robot_pose, publishing to
-    /goal_pose
+    /goal_pose.  It uses the /map_server/map_saver/save_map
+    service to save the map.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        save_map_file_path: str = "./map",
+    ):
         super().__init__("search_service")
 
         # Track the latest robot pose
@@ -58,6 +63,11 @@ class SearchService(Node):
 
         self.__explore_thread = Thread(target=self.explore)
         self.__explore_thread.start()
+
+        # Create savemap client
+        self.__save_map_client = self.create_client(SaveMap, "/map_saver/save_map")
+        self.__save_map_client.wait_for_service()
+        self.__save_map_file_path = save_map_file_path
 
     def __map_callback(self, msg: OccupancyGrid):
         """
@@ -134,10 +144,23 @@ class SearchService(Node):
             goal = self.get_next_goal()
             if goal is None:
                 print("Complete!")
+                self.save_map()
                 break
 
             print("Sending to", goal)
             self.__send_goal(goal)
+
+    def save_map(self):
+        """
+        save_map calls out to the map_saver_server to save the
+        current map
+        """
+        request = SaveMap.Request()
+        request.map_topic = "map"
+        request.map_url = self.__save_map_file_path
+        request.map_mode = "trinary"
+
+        self.__save_map_client.call_async(request)
 
 
 def main(args=None):
