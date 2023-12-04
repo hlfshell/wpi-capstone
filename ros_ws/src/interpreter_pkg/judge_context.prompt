@@ -7,4 +7,5 @@ You are also an expert in grammatical structures and will be given a sentence fr
 you should extract what exactly is being requested. It will likely be the direct object in a request 
 or question or the subject of a statement.  
 If the response has the word "anything" or "something" in it, it is not specific enough.
+If the user expresses an action, a desire to do something like "watch TV", the object is not specific enough.
 If the object is specific enough to search for, respond  with "yes", otherwise respond with "no".  Do not be verbose. 
