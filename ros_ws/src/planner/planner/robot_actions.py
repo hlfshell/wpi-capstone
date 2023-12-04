@@ -9,7 +9,7 @@ from typing import Optional, Tuple, List
 from capstone_interfaces.srv import ObjectIDQuery
 from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
 from capstone_interfaces.srv import GiveObject as GiveObjectMsg
-from capstone_interfaces.msg import StateObject
+from capstone_interfaces.msg import StateObject, Room
 
 from threading import Lock
 
@@ -42,6 +42,11 @@ PickupObject - Given an object ID, will attempt to pick up the object if it is
 GiveObject - Given an object ID, will attempt to give the object to a human.
     Succeeds only if a human is nearby to take the object and the object is
     within reach. Navigate to the human prior to giving the object if possible.
+
+DoISeeObject - Given an object ID, will return whether or not the robot has
+    recently seen a given object with the label provided within a set time
+    window and distance of the robot. The time window and distance is coded
+    to be "recent".
 """
 
 
@@ -57,10 +62,7 @@ class MoveToObject(Action):
     """
 
     def __init__(
-        self,
-        navigator: NavigationModule,
-        vision: VisionModule,
-        object_query_client: Client,
+        self, navigator: NavigationModule, vision: VisionModule, state: StateModule
     ):
         """
         Create a new MoveToObject action.
@@ -73,7 +75,7 @@ class MoveToObject(Action):
         super().__init__("MoveToObject")
         self.__navigator = navigator
         self.__vision = vision
-        self.__object_query_client = object_query_client
+        self.__state = state
 
         self.__object_id_lock = Lock()
         self.__object_id: str = ""
@@ -82,78 +84,109 @@ class MoveToObject(Action):
         """
         _execute requests the robot to move to a given location.
         """
-        location = self.__get_item_location(object_to_move_to)
-        if location is None:
-            self._set_result(False, "item location not known")
+        # location = self.__get_item_location(object_to_move_to)
+        object = self.__state.query_for_object_id(object_to_move_to)
+        if object is None:
+            self._set_result(False, "item not known")
             return
+        location = object.position
 
         self.__navigator.move_to(location, self.__movement_complete_callback)
 
-    def __movement_complete_callback(self, result, msg):
-        # If the result is a failure, we either cancelled or
-        # failed to reach the spot for some reason.
-        if not result:
-            self._set_result((False, msg))
-            return
+    # def __movement_complete_callback(self, result: bool, msg: str):
+    #     # If the result is a failure, we either cancelled or
+    #     # failed to reach the spot for some reason.
+    #     if not result:
+    #         self._set_result((False, msg))
+    #         return
 
-        # Confirm if we've seen the item, which we should since
-        # we just moved to it. Basically see if it's in front
-        # of us and it hasn't moved.
-        with self.__object_id_lock:
-            object_id = self.__object_id
+    #     # Confirm if we've seen the item, which we should since
+    #     # we just moved to it. Basically see if it's in front
+    #     # of us and it hasn't moved.
+    #     with self.__object_id_lock:
+    #         object_id = self.__object_id
 
-        # If we see the object within half a meter in the past
-        # five seconds, we succeed
-        if self.__vision.is_nearby_since(
-            object_id,
-            self.__navigator.get_current_position(),
-            0.5,
-            5.0,
-        ):
-            self._set_result((True, ""))
-        else:
-            self._set_result((False, "object not seen"))
+    #     # If we see the object within half a meter in the past
+    #     # five seconds, we succeed
+    #     if self.__vision.is_nearby_since(
+    #         object_id,
+    #         self.__navigator.get_current_position(),
+    #         0.5,
+    #         5.0,
+    #     ):
+    #         self._set_result((True, ""))
+    #     else:
+    #         self._set_result((False, "object not seen"))
 
     def _cancel(self):
         self.__navigator.cancel()
 
     def clone(self) -> MoveToObject:
         return MoveToObject(
-            self.navigator,
+            self.__navigator,
             self.__vision,
-            self.__object_query_client,
+            self.__state,
         )
 
-    def __get_item_location(self, item_name: str) -> Optional[Tuple[float, float]]:
-        """
-        Get the location of the item from the database
-        """
-        request: ObjectIDQuery.Request = ObjectIDQuery.Request()
-        request.object_id = item_name
-        future = self.__object_query_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        response: ObjectIDQuery.Response = future.result()
+    # def __get_item_location(self, item_name: str) -> Optional[Tuple[float, float]]:
+    #     """
+    #     Get the location of the item from the database
+    #     """
+    #     request: ObjectIDQuery.Request = ObjectIDQuery.Request()
+    #     request.object_id = item_name
+    #     future = self.__object_query_client.call_async(request)
+    #     rclpy.spin_until_future_complete(self, future)
+    #     response: ObjectIDQuery.Response = future.result()
 
-        matching_items: List[StateObject] = response.states_of_objects
-        if len(matching_items) == 0:
-            return None
-        else:
-            return (matching_items[0].x, matching_items[0].y)
+    #     matching_items: List[StateObject] = response.states_of_objects
+    #     if len(matching_items) == 0:
+    #         return None
+    #     else:
+    #         return (matching_items[0].x, matching_items[0].y)
 
 
 class MoveToRoom(Action):
-    def __init__(self):
+    def __init__(self, navigator: NavigationModule, state: StateModule):
         super().__init__("MoveToRoom")
+
+        self.__navigator = navigator
+        self.__state = state
 
     def _execute(self, room_to_move_to: str):
         """ """
-        pass
+        room = self.__get_room(room_to_move_to)
+        if room is None:
+            self._set_result(False, "room not known")
+            return
+
+        location = (room.x, room.y)
+
+        self.__navigator.move_to(
+            location, self.__movement_complete_callback, distance_for_success=1.0
+        )
+
+    def __movement_complete_callback(self, result: bool, msg: str):
+        if not result:
+            self._set_result((False, msg))
+            return
+        else:
+            self._set_result((True, ""))
+
+    def __get_room(self, room: str) -> Optional[Room]:
+        """
+        Get the room from the query_services
+        """
+        rooms = self.__state.get_rooms()
+        for room in rooms:
+            if room.name == room:
+                return room
+        return None
 
     def _cancel(self):
-        pass
+        self.__navigator.cancel()
 
     def clone(self):
-        pass
+        return MoveToRoom(self.__navigator, self.__state)
 
 
 class SearchAreaForObject(Action):
@@ -245,3 +278,34 @@ class GiveObject(Action):
 
     def clone(self):
         return GiveObject(self.__give_client)
+
+
+class DoISeeObject(Action):
+    """
+    DoISeeObject will return whether or not the robot has recently seen
+    a given object with the label provided within a set time window
+    and distance of the robot. It returns a tuple of (success, message),
+    where message is set for the "why" in the event of not seeing it.
+    """
+
+    def __init__(self, vision: VisionModule):
+        super().__init__("DoISeeObject")
+        self.__vision = vision
+
+    def _execute(self, object_to_look_for: str):
+        """
+        Send a give object request
+        """
+        if self.__vision.is_nearby(object_to_look_for, 0.5):
+            self._set_result(True)
+        else:
+            self._set_result(False)
+
+    def _cancel(self):
+        """
+        There is no real cancellation of this action as is
+        """
+        pass
+
+    def clone(self):
+        return DoISeeObject(self.__vision)

@@ -64,7 +64,12 @@ class NavigationModule(Node):
         with self.__position_lock:
             return self.__position
 
-    def move_to(self, location: Tuple[float, float], result_callback: Callable):
+    def move_to(
+        self,
+        location: Tuple[float, float],
+        result_callback: Callable,
+        distance_for_success: float = 0.5,
+    ):
         """
         move_to will move attempt to move the robot to a given x,y location.
         The result_callback is a function with parameters (success, message)
@@ -77,6 +82,7 @@ class NavigationModule(Node):
         goal.pose.header.frame_id = "map"
         goal.pose.pose.position.x = location[0]
         goal.pose.pose.position.y = location[1]
+        self.__distance_for_success = distance_for_success
 
         with self.__goal_position_lock:
             self.__goal_position = location
