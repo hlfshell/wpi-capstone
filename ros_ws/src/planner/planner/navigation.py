@@ -10,6 +10,7 @@ from nav_msgs.msg import Odometry
 from typing import Optional, Callable, Tuple
 
 import math
+from time import sleep
 
 
 class NavigationModule(Node):
@@ -44,6 +45,10 @@ class NavigationModule(Node):
         )
         self.__position_lock = Lock()
         self.__position: Tuple[float, float] = (0.0, 0.0)
+
+        self.__sync_lock = Lock()
+        self.__sync_complete: bool = False
+        self.__last_result: Tuple[bool, str] = (False, "")
 
     def cancel(self):
         """
@@ -92,6 +97,30 @@ class NavigationModule(Node):
         future: ActionTaskFuture = self.__navigate.send_goal_async(goal)
         future.add_done_callback(self.__navigate_acceptance_callback)
 
+    def move_to_synchronous(
+        self,
+        location: Tuple[float, float],
+        distance_for_success: float = 0.5,
+    ) -> Tuple[bool, str]:
+        """
+        move_to_synchronous will move the robot to a given x,y location
+        and return whether or not it succeeded. A success is considered
+        being within a set distance of the goal (the navigation module's
+        distance_for_success parameter). Note that a cancellation is
+        considered a failure.
+        """
+        with self.__sync_lock:
+            self.sync_complete = False
+
+        self.move_to(location, lambda result: None, distance_for_success)
+
+        while True:
+            with self.__sync_lock:
+                if self.__sync_complete:
+                    self.__sync_complete = False
+                    return self.__last_result
+            sleep(0.1)
+
     def __navigate_acceptance_callback(self, future: ActionTaskFuture):
         """
         __navigate_acceptance_callback is called when the robot accepts
@@ -129,7 +158,12 @@ class NavigationModule(Node):
         with self.__result_callback_lock:
             callback = self.__result_callback
 
-        callback(result, "Success" if result else f"{distance:.2f} away from goal")
+        result = (result, "Success" if result else f"{distance:.2f} away from goal")
+
+        self.__last_result = result
+        with self.__sync_lock:
+            self.__sync_complete = True
+        callback(result)
 
     def __pose_callback(self, msg: Odometry):
         """

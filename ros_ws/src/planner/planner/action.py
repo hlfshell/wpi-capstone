@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from threading import Lock
 from typing import Any, Callable, Dict, Optional
 
+from functools import partial
+
 # Status code constants for actions
 READY = 0
 EXECUTING = 1
@@ -106,7 +108,7 @@ class Action(ABC):
 
             return result
         except Exception as e:
-            self._set_error(e)
+            self.error = e
             raise e
 
     def _set_result(self, result: Any):
@@ -193,22 +195,19 @@ class Action(ABC):
 
     def __str__(self) -> str:
         # Format the parameters
-        parameters = ""
-        for key, value in self.parameters.items():
-            if len(parameters) > 0:
-                parameters += ", "
-            parameters += f"{key}={value}"
+        # parameters = ""
+        # for key, value in self.parameters.items():
+        #     if len(parameters) > 0:
+        #         parameters += ", "
+        #     parameters += f"{key}={value}"
 
-        return f"{self.action_type}({parameters})"
+        # return f"{self.action_type}({parameters})"
+        return f"{self.action_type}()"
 
     def __eq__(self, __value: Action) -> bool:
         if __value is None:
             return False
-        return (
-            self.action_type == __value.action_type
-            and self.parameters == __value.parameters
-            and self.reasoning == __value.reasoning
-        )
+        return self.action_type == __value.action_type
 
 
 class ActionPlanner:
@@ -248,7 +247,7 @@ class ActionPlanner:
         except Exception as e:
             raise CouldNotParseActionPlanException(e)
 
-    def __action_wrapper(self, function_name, *args, **kwargs) -> Callable:
+    def __action_wrapper(self, function_name: str, *args, **kwargs) -> Callable:
         """
         __action_wrapper generates the action clone for the specified action,
         saves it as the current action, and then executes it, returning the
@@ -273,9 +272,7 @@ class ActionPlanner:
         """
         lambdas: Dict[str, Callable] = {}
         for function_name, action in self.actions.items():
-            lambdas[function_name] = lambda *args, **kwargs: self.__action_wrapper(
-                function_name, *args, **kwargs
-            )
+            lambdas[function_name] = partial(self.__action_wrapper, function_name)
 
         return lambdas
 
@@ -332,7 +329,6 @@ class ActionPlanner:
 
     def __set_error(self, e: Exception):
         self.error = e
-        self.__set_status(ERROR)
 
     def get_error(self) -> Optional[Exception]:
         with self.__error_lock:

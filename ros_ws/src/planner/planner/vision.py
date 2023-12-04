@@ -3,8 +3,9 @@ from threading import Lock
 
 
 from capstone_interfaces.msg import ObjectSpotted
+from nav_msgs.msg import Odometry
 
-from typing import Dict, List, Union, Optional, Tuple
+from typing import Dict, Tuple, Union, List, Optional
 
 from time import time
 import math
@@ -22,40 +23,83 @@ class VisionModule(Node):
         )
 
         self.__object_spotted_lock = Lock()
-        self.__object_tracking: Dict[str, ObjectTracker] = {}
+        self.__object_tracking: Dict[str, List[ObjectTracker]] = {}
+
+        self.__odometry_subscriber = self.create_subscription(
+            msg_type=Odometry,
+            topic="/odom",
+            callback=self.__pose_callback,
+            qos_profile=10,  # Keep last
+        )
+        self.__position_lock = Lock()
+        self.__position: Tuple[float, float] = (0.0, 0.0)
 
     def __object_spotted_callback(self, msg: ObjectSpotted):
-        object_id = msg.description
+        label = msg.description
         location = (msg.x, msg.y)
 
         with self.__object_spotted_lock:
-            if object_id not in self.__object_tracking:
-                self.__object_tracking[object_id] = ObjectTracker(object_id, location)
+            if label not in self.__object_tracking:
+                self.__object_tracking[label] = [ObjectTracker(label, location)]
             else:
-                self.__object_tracking[object_id].spotted(location)
+                # See if any of the objects are close enough to be the same item
+                for object in self.__object_tracking[label]:
+                    if object.distance(location) < 0.5:
+                        object.spotted(location)
+                        return
+                    else:
+                        self.__object_tracking[label].append(
+                            ObjectTracker(label, location)
+                        )
+
+    def __pose_callback(self, msg: Odometry):
+        with self.__position_lock:
+            self.__position = (msg.pose.pose.position.x, msg.pose.pose.position.y)
 
     def is_nearby_since(
         self,
-        object: str,
-        location: Tuple[float, float],
+        object: Union[str, int],
         distance: float,
         time: float,
+        location: Optional[Tuple[float, float]] = None,
     ):
         """
         is_nearby_since will determine if the specified object has
         been spotted within a set distance of the given location
         within the specified time limit.
+
+        Accepts either a label (string) or a unique ID (int) for
+        the object
         """
+        if location is None:
+            with self.__position_lock:
+                location = self.__position
+
         with self.__object_spotted_lock:
+            # if isinstance(object, str):
             if object not in self.__object_tracking:
                 return False
 
-            target = self.__object_tracking[object]
+            for target in self.__object_tracking[object]:
+                if target.last_seen < time:
+                    continue
 
-        if target.last_seen < time:
+                if target.distance(location) < distance:
+                    return True
+
             return False
+            # else:
+            #     for targets in self.__object_tracking.values():
+            #         for target in targets:
+            #             if target.id != object:
+            #                 continue
 
-        return target.distance(location) < distance
+            #             if target.last_seen < time:
+            #                 return False
+
+            #             return target.distance(location) < distance
+
+            #     return False
 
 
 class ObjectTracker:
@@ -64,8 +108,8 @@ class ObjectTracker:
     tracking of objects and associated metadata
     """
 
-    def __init__(self, id: str, location: Tuple[float, float]):
-        self.id = id
+    def __init__(self, label: str, location: Tuple[float, float]):
+        self.label = label
         self.location = location
         self.last_seen = time()
 

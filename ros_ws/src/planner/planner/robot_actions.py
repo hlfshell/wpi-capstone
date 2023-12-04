@@ -4,7 +4,7 @@ from planner.action import Action
 import rclpy
 from rclpy.node import Client
 
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 
 from capstone_interfaces.srv import ObjectIDQuery
 from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
@@ -89,34 +89,38 @@ class MoveToObject(Action):
         if object is None:
             self._set_result(False, "item not known")
             return
+
+        with self.__object_id_lock:
+            self.__object_id = object_to_move_to
+
         location = object.position
 
-        self.__navigator.move_to(location, self.__movement_complete_callback)
+        # self.__navigator.move_to(location, self.__movement_complete_callback)
 
-    # def __movement_complete_callback(self, result: bool, msg: str):
-    #     # If the result is a failure, we either cancelled or
-    #     # failed to reach the spot for some reason.
-    #     if not result:
-    #         self._set_result((False, msg))
-    #         return
+        result, msg = self.__navigator.move_to_synchronous(location)
 
-    #     # Confirm if we've seen the item, which we should since
-    #     # we just moved to it. Basically see if it's in front
-    #     # of us and it hasn't moved.
-    #     with self.__object_id_lock:
-    #         object_id = self.__object_id
+        # If the result is a failure, we either cancelled or
+        # failed to reach the spot for some reason.
+        if not result:
+            self._set_result((False, msg))
+            return
 
-    #     # If we see the object within half a meter in the past
-    #     # five seconds, we succeed
-    #     if self.__vision.is_nearby_since(
-    #         object_id,
-    #         self.__navigator.get_current_position(),
-    #         0.5,
-    #         5.0,
-    #     ):
-    #         self._set_result((True, ""))
-    #     else:
-    #         self._set_result((False, "object not seen"))
+        # Confirm if we've seen the item, which we should since
+        # we just moved to it. Basically see if it's in front
+        # of us and it hasn't moved.
+        with self.__object_id_lock:
+            object_id = self.__object_id
+
+        # If we see the object within half a meter in the past
+        # five seconds, we succeed
+        if self.__vision.is_nearby_since(
+            object_id,
+            0.5,
+            5.0,
+        ):
+            return self._set_result((True, ""))
+        else:
+            return self._set_result((False, "object not seen"))
 
     def _cancel(self):
         self.__navigator.cancel()
@@ -128,24 +132,13 @@ class MoveToObject(Action):
             self.__state,
         )
 
-    # def __get_item_location(self, item_name: str) -> Optional[Tuple[float, float]]:
-    #     """
-    #     Get the location of the item from the database
-    #     """
-    #     request: ObjectIDQuery.Request = ObjectIDQuery.Request()
-    #     request.object_id = item_name
-    #     future = self.__object_query_client.call_async(request)
-    #     rclpy.spin_until_future_complete(self, future)
-    #     response: ObjectIDQuery.Response = future.result()
-
-    #     matching_items: List[StateObject] = response.states_of_objects
-    #     if len(matching_items) == 0:
-    #         return None
-    #     else:
-    #         return (matching_items[0].x, matching_items[0].y)
-
 
 class MoveToRoom(Action):
+    """
+    MoveToRoom will move to a room given a name. The target location
+    in the room will be its centroid
+    """
+
     def __init__(self, navigator: NavigationModule, state: StateModule):
         super().__init__("MoveToRoom")
 
@@ -154,31 +147,28 @@ class MoveToRoom(Action):
 
     def _execute(self, room_to_move_to: str):
         """ """
+        print("getting room", room_to_move_to)
         room = self.__get_room(room_to_move_to)
+        print("got room", room)
         if room is None:
-            self._set_result(False, "room not known")
+            self._set_result((False, "room not known"))
             return
 
         location = (room.x, room.y)
 
-        self.__navigator.move_to(
-            location, self.__movement_complete_callback, distance_for_success=1.0
+        result, msg = self.__navigator.move_to_synchronous(
+            location, distance_for_success=1.0
         )
+        self._set_result((result, msg))
 
-    def __movement_complete_callback(self, result: bool, msg: str):
-        if not result:
-            self._set_result((False, msg))
-            return
-        else:
-            self._set_result((True, ""))
-
-    def __get_room(self, room: str) -> Optional[Room]:
+    def __get_room(self, room_name: str) -> Optional[Room]:
         """
         Get the room from the query_services
         """
         rooms = self.__state.get_rooms()
+        print("rooms gotten", rooms)
         for room in rooms:
-            if room.name == room:
+            if room.name == room_name:
                 return room
         return None
 
@@ -292,11 +282,11 @@ class DoISeeObject(Action):
         super().__init__("DoISeeObject")
         self.__vision = vision
 
-    def _execute(self, object_to_look_for: str):
+    def _execute(self, object_to_look_for: Union[str, int]):
         """
         Send a give object request
         """
-        if self.__vision.is_nearby(object_to_look_for, 0.5):
+        if self.__vision.is_nearby_since(object_to_look_for, 0.5, 2.0):
             self._set_result(True)
         else:
             self._set_result(False)
