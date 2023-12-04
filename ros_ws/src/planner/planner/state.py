@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import rclpy
-from capstone_interfaces.msg import StateObject
-from capstone_interfaces.srv import ObjectDescriptionQuery, ObjectIDQuery
 from rclpy.node import Node
+
+from capstone_interfaces.msg import Room, StateObject
+from capstone_interfaces.srv import (
+    GetRooms,
+    ObjectDescriptionQuery,
+    ObjectIDQuery,
+    RoomByCoordinates,
+)
 
 
 class StateModule(Node):
@@ -24,10 +30,23 @@ class StateModule(Node):
             ObjectDescriptionQuery, "/object_description_query"
         )
         self.__object_id_client = self.create_client(ObjectIDQuery, "/object_id_query")
+        self.__get_rooms_client = self.create_client(GetRooms, "/get_rooms")
+        self.__room_by_location_client = self.create_client(
+            RoomByCoordinates, "/room_by_location"
+        )
+
+        self.wait_for_service()
+
+    def wait_for_service(self):
         self.__query_client.wait_for_service()
         self.__object_id_client.wait_for_service()
+        self.__get_rooms_client.wait_for_service()
+        self.__room_by_location_client.wait_for_service()
 
     def query_for_object(self, description: str) -> List[Object]:
+        """
+        Given a query about an object, see what objects fit
+        """
         request = ObjectDescriptionQuery.Request()
         request.object_description = description
 
@@ -41,7 +60,11 @@ class StateModule(Node):
             for state_object in response.states_of_objects
         ]
 
-    def query_for_object_id(self, object_id: str) -> List[Object]:
+    def query_for_object_id(self, object_id: str) -> Optional[Object]:
+        """
+        Given an objects ID (not label) return the object if
+        we know about it
+        """
         request = ObjectIDQuery.Request()
         request.object_id = object_id
 
@@ -50,10 +73,46 @@ class StateModule(Node):
 
         response: ObjectIDQuery.Response = future.result()
 
-        return [
+        objects = [
             Object.FromStateObject(state_object)
             for state_object in response.states_of_objects
         ]
+
+        if len(objects) == 0:
+            return None
+        else:
+            return objects[0]
+
+    def get_rooms(self) -> List[Room]:
+        """
+        get_rooms returns all known rooms
+        """
+        request = GetRooms.Request()
+
+        future = self.__get_rooms_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        response: GetRooms.Response = future.result()
+
+        return response.rooms
+
+    def get_room_by_location(self, location: Tuple[float, float]) -> Optional[Room]:
+        """
+        get_room_by_location returns the room associated with the given coordinates if any.
+        """
+        request = RoomByCoordinates.Request()
+        request.x = location[0]
+        request.y = location[1]
+
+        future = self.__room_by_location_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        response: RoomByCoordinates.Response = future.result()
+
+        if response.room.name == "":
+            return None
+        else:
+            return response.room
 
 
 class Object:
