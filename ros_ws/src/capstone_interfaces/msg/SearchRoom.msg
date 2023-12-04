@@ -1,0 +1,2 @@
+boolean begin_search
+int8 room_seg
