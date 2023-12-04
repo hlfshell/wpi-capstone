@@ -4,6 +4,8 @@ from planner.action import Action
 import rclpy
 from rclpy.node import Client
 
+import numpy as np
+
 from typing import Optional, Tuple, List
 
 from capstone_interfaces.srv import ObjectIDQuery
@@ -193,8 +195,14 @@ class SearchAreaForObject(Action):
     def __init__(self):
         super().__init__("SearchRoomForObject")
 
-    def _execute(self, room_to_search: str, object_to_search_for: str):
-        """ """
+    def _execute(self, seg_map:np.ndarray, room_to_search: str, object_to_search_for: str):
+        """ 
+        This function takes a segmentation map, room_to_search in text, and an object
+        to serach for in text.  The room to search will be converted to room segmentation
+        for use against the segemntation map in which room segemntation is noted
+        as into
+        """
+
         pass
 
     def _cancel(self):
