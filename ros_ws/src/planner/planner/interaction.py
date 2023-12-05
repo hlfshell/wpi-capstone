@@ -1,4 +1,5 @@
-import rclpy.node
+import rclpy
+from rclpy.node import Node
 
 from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
 from capstone_interfaces.srv import GiveObject as GiveObjectMsg
@@ -21,29 +22,23 @@ class InteractionModule(Node):
         self.__pickup_client.wait_for_service()
         self.__give_client.wait_for_service()
 
-    def pickup_object(self, object_id: Union[str, int]):
+    def pickup_object(self, object_id: str):
         """
         pickup_object will call the pickup service with the given object name
         """
-        if isinstance(object_id, int):
-            object_id = str(object_id)
-
         request = PickUpObjectMsg.Request()
-        request.object_name = object_id
+        request.object = object_id
         future = self.__pickup_client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
         response: PickUpObjectMsg.Response = future.result()
         return response.success
 
-    def give_object(self, object_id: Union[str, int]):
+    def give_object(self, object_id: str):
         """
         give_object will call the give service with the given object name
         """
-        if isinstance(object_id, int):
-            object_id = str(object_id)
-
         request = GiveObjectMsg.Request()
-        request.object_name = object_id
+        request.object = object_id
         future = self.__give_client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
         response: GiveObjectMsg.Response = future.result()

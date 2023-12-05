@@ -11,6 +11,7 @@ from capstone_interfaces.srv import (
     ObjectIDQuery,
     GetRooms,
     RoomByCoordinates,
+    QueryHumanLocation,
 )
 from rclpy.node import Node
 
@@ -45,14 +46,20 @@ class StateModule(Node):
         self.__human_lock = Lock()
         self.__human_position = (0.0, 0.0)
         self.__human_times_seen = 0
+        self.__human_query_client = self.create_client(
+            QueryHumanLocation, "/human_location"
+        )
 
         self.wait_for_service()
+
+        self.query_human_location()
 
     def wait_for_service(self):
         self.__query_client.wait_for_service()
         self.__object_id_client.wait_for_service()
         self.__get_rooms_client.wait_for_service()
         self.__room_by_location_client.wait_for_service()
+        self.__human_query_client.wait_for_service()
 
     def query_for_object(self, description: str) -> List[Object]:
         """
@@ -71,7 +78,7 @@ class StateModule(Node):
             for state_object in response.states_of_objects
         ]
 
-    def query_for_object_id(self, object_id: str) -> Optional[Object]:
+    def query_for_object_id(self, object_id: int) -> Optional[Object]:
         """
         Given an objects ID (not label) return the object if
         we know about it
@@ -131,6 +138,24 @@ class StateModule(Node):
         """
         with self.__human_lock:
             return self.__human_position
+
+    def query_human_location(self) -> Tuple[float, float]:
+        """
+        Queries the state service for the known human location, whereas
+        get_human_location uses last known location via the module. It's
+        a "I wrote the other one first" situation.
+        """
+        request = QueryHumanLocation.Request()
+
+        future = self.__human_query_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        response: QueryHumanLocation.Response = future.result()
+
+        with self.__human_lock:
+            self.__human_position = (response.pose.x, response.pose.y)
+
+        return (response.pose.x, response.pose.y)
 
     def __human_callback(self, msg: HumanSpotted):
         with self.__human_lock:

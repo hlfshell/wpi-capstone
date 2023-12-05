@@ -46,6 +46,7 @@ class NavigationModule(Node):
             callback=self.__pose_callback,
             qos_profile=10,  # Keep last
         )
+        self.__first_pose_received: bool = False
         self.__pose_lock = Lock()
         self.__position: Tuple[float, float] = (0.0, 0.0)
         self.__orientation: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
@@ -70,8 +71,14 @@ class NavigationModule(Node):
     ) -> Tuple[Tuple[float, float], Tuple[float, float, float, float]]:
         """
         get_current_position returns the last known position
-        of the robot.
+        of the robot. Will lock until the first odom msg is
+        received.
         """
+        while True:
+            with self.__pose_lock:
+                if self.__first_pose_received:
+                    break
+            sleep(0.1)
         with self.__pose_lock:
             return self.__position, self.__orientation
 
@@ -79,7 +86,7 @@ class NavigationModule(Node):
         self,
         location: Tuple[float, float],
         result_callback: Callable,
-        distance_for_success: float = 0.5,
+        distance_for_success: float = 0.75,
         acceptable_angle_difference: float = pi / 8,
         orientation: Optional[
             Union[Tuple[float, float, float, float], Tuple[float, float, float]]
@@ -128,7 +135,7 @@ class NavigationModule(Node):
     def move_to_synchronous(
         self,
         location: Tuple[float, float],
-        distance_for_success: float = 0.5,
+        distance_for_success: float = 0.75,
         orientation: Optional[
             Union[Tuple[float, float, float, float], Tuple[float, float, float]]
         ] = None,
@@ -163,9 +170,12 @@ class NavigationModule(Node):
         """
         spin will spin the robot "in place" (mostly) by given radians.
         """
+        # Reset the pose lock and then query for the current
+        # pose - we do this because a spin requires its current
+        # pose accurately, and odom updates at an unknown tick
         with self.__pose_lock:
-            current_pose = self.__position
-            current_orientation = self.__orientation
+            self.__first_pose_received = False
+        current_position, current_orientation = self.get_current_pose()
 
         self.__distance_for_success = 0.25
         self.__acceptable_angle_difference = angle_difference_acceptable
@@ -176,15 +186,15 @@ class NavigationModule(Node):
 
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = "map"
-        goal.pose.pose.position.x = current_pose[0]
-        goal.pose.pose.position.y = current_pose[1]
+        goal.pose.pose.position.x = current_position[0]
+        goal.pose.pose.position.y = current_position[1]
         goal.pose.pose.orientation.x = x
         goal.pose.pose.orientation.y = y
         goal.pose.pose.orientation.z = z
         goal.pose.pose.orientation.w = w
 
         with self.__goal_pose_lock:
-            self.__goal_position = current_pose
+            self.__goal_position = current_position
             self.__goal_orientation = (x, y, z, w)
 
         with self.__result_callback_lock:
@@ -285,6 +295,7 @@ class NavigationModule(Node):
         __pose_callback updates our current position of the robot
         """
         with self.__pose_lock:
+            self.__first_pose_received = True
             self.__position = (
                 msg.pose.pose.position.x,
                 msg.pose.pose.position.y,
