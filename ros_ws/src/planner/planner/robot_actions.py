@@ -2,10 +2,12 @@ from __future__ import annotations
 from planner.action import Action
 
 import rclpy
-from rclpy.node import Client
+
+import numpy as np
 
 from typing import Optional, Tuple, List, Union
-from math import pi
+from math import pi, degrees
+from time import sleep
 
 from capstone_interfaces.srv import ObjectIDQuery
 from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
@@ -82,18 +84,38 @@ class MoveToObject(Action):
         self.__object_id_lock = Lock()
         self.__object_id: str = ""
 
-    def _execute(self, object_to_move_to: str):
+    def _execute(self, object_to_move_to: Union[str, int]):
         """
         _execute requests the robot to move to a given location.
         """
-        # location = self.__get_item_location(object_to_move_to)
-        object = self.__state.query_for_object_id(object_to_move_to)
-        if object is None:
-            self._set_result(False, "item not known")
-            return
+        # Check to see if the object is a string that can be
+        # easily converted to an int; if so, convert it to an
+        # int
+        try:
+            object_to_move_to = int(object_to_move_to)
+        except ValueError:
+            pass
+
+        if isinstance(object_to_move_to, str):
+            # If the object is a string, we need to query the
+            # state module to find the object ID
+            objects = self.__state.query_for_object(object_to_move_to)
+            if objects is None or len(objects) == 0:
+                self._set_result((False, "item not known"))
+                return
+            else:
+                object = objects[0]
+                object_to_move_to = objects[0].id
+        elif isinstance(object_to_move_to, int):
+            object = self.__state.query_for_object_id(object_to_move_to)
+            if object is None:
+                self._set_result((False, "item not known"))
+                return
+        else:
+            self._set_result((False, "invalid object reference"))
 
         with self.__object_id_lock:
-            self.__object_id = object_to_move_to
+            self.__object_id = object.id
 
         location = object.position
 
@@ -196,7 +218,7 @@ class MoveToHuman(Action):
         location = self.__state.get_human_location()
 
         result, msg = self.__navigator.move_to_synchronous(
-            location, distance_for_success=0.5
+            location, distance_for_success=1.0
         )
         self._set_result((result, msg))
 
@@ -229,14 +251,23 @@ class PickUpObject(Action):
     event of a unsuccessful pickup.
     """
 
-    def __init__(self, interaction_module: InteractionModule):
+    def __init__(self, interaction_module: InteractionModule, state: StateModule):
         super().__init__("PickUpObject")
         self.__interaction = interaction_module
+        self.__state = state
 
     def _execute(self, object_to_pickup: Union[str, int]):
         """
         Send a pickup object request
         """
+        if isinstance(object_to_pickup, int):
+            object = self.__state.query_for_object_id(object_to_pickup)
+            if object is None:
+                self._set_result((False, "object not known"))
+                return
+            else:
+                object_to_pickup = object.description
+
         result = self.__interaction.pickup_object(object_to_pickup)
         self._set_result(result)
 
@@ -247,7 +278,7 @@ class PickUpObject(Action):
         pass
 
     def clone(self):
-        return PickUpObject(self.__pickup_client)
+        return PickUpObject(self.__interaction, self.__state)
 
 
 class GiveObject(Action):
@@ -257,14 +288,23 @@ class GiveObject(Action):
     event of a unsuccessful pickup.
     """
 
-    def __init__(self, interacton_module: InteractionModule):
+    def __init__(self, interacton_module: InteractionModule, state: StateModule):
         super().__init__("GiveObject")
         self.__interaction = interacton_module
+        self.__state = state
 
-    def _execute(self, object_to_give: str):
+    def _execute(self, object_to_give: Union[str, int]):
         """
         Send a give object request
         """
+        if isinstance(object_to_give, int):
+            object = self.__state.query_for_object_id(object_to_give)
+            if object is None:
+                self._set_result((False, "object not known"))
+                return
+            else:
+                object_to_give = object.description
+
         result = self.__interaction.give_object(object_to_give)
         self._set_result(result)
 
@@ -275,7 +315,7 @@ class GiveObject(Action):
         pass
 
     def clone(self):
-        return GiveObject(self.__give_client)
+        return GiveObject(self.__interaction, self.__state)
 
 
 class DoISee(Action):
@@ -325,16 +365,16 @@ class LookAround(Action):
         """
         Send a give object request
         """
-        with self.__cancel_lock:
-            self.__cancel_flag = False
-        # Rotate pi / 2 radians, checking each time if
-        # we've seen the object we're looking for yet
-
         # Check before spinning
         self.__vision.is_nearby_since(object_to_look_for, 5.0, 5.0)
 
-        for rotation in range(pi / 2, 2 * pi, pi / 2):
-            self.__navigation.rotate(rotation)
+        for spin in range(4):
+            # We want to spin pi / 2, but we add a bit as a buffer
+            # as nav2 allows error room, and tends to undershoot in
+            # practice. Plus the important thing is room coverage,
+            # not precision here.
+            rotation = (pi / 2) + (pi / 8)
+            self.__navigation.spin_synchronous(rotation)
 
             # Check to see if we canceled the rotation since rotating
             with self.__cancel_lock:
@@ -358,4 +398,4 @@ class LookAround(Action):
         self.__navigation.cancel()
 
     def clone(self):
-        return LookAround(self.__vision)
+        return LookAround(self.__navigation, self.__vision)
