@@ -231,22 +231,30 @@ class PickUpObject(Action):
         super().__init__("PickUpObject")
         self.__pickup_client = pickup_client
 
-    def _execute(self, object_to_pickup: str):
+    def _execute(self, object_to_pickup: int):
         """
         Send a pickup object request
         """
-        request: PickUpObjectMsg.Request = PickUpObjectMsg.Request()
-        request.object = object_to_pickup
-        future = self.__pickup_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        response: PickUpObjectMsg.Response = future.result()
+        print("executing", object_to_pickup)
+        object_to_pickup = str(object_to_pickup)
+        print("calling")
+        result = self.__pickup_client(object_to_pickup)
+        print("result", result)
+        # request: PickUpObjectMsg.Request = PickUpObjectMsg.Request()
+        # request.object = object_to_pickup
+        # print("making call")
+        # future = self.__pickup_client.call_async(request)
+        # print("spin time")
+        # rclpy.spin_until_future_complete(self, future)
+        # response: PickUpObjectMsg.Response = future.result()
+        # print("response", response)
 
-        if not response.sick:
-            self._set_result(False, response.status_message)
-        else:
-            self._set_result(True)
+        # if not response.success:
+        #     self._set_result(False, response.status_message)
+        # else:
+        #     self._set_result(True)
 
-        return
+        # return
 
     def _cancel(self):
         """
