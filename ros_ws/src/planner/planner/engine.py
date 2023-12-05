@@ -18,7 +18,8 @@ from planner.robot_actions import (
     MoveToRoom,
     MoveToHuman,
     PickUpObject,
-    DoISeeObject,
+    DoISee,
+    LookAround,
 )
 from planner.state import StateModule
 from planner.vision import VisionModule
@@ -40,24 +41,27 @@ class RobotEngine(Node):
 
         print("making modules")
         # Modules
-        self.interaction_module = InteractionModule()
-        self.navigation_module = NavigationModule()
-        self.vision_module = VisionModule()
-        self.state_module = StateModule()
+        self.__interaction_module = InteractionModule()
+        self.__navigation_module = NavigationModule()
+        self.__vision_module = VisionModule()
+        self.__state_module = StateModule()
 
         # Actions
         print("Creating Actions")
         actions: Dict[str, Action] = {
             "move_to_object": MoveToObject(
-                self.navigation_module,
-                self.vision_module,
-                self.state_module,
+                self.__navigation_module,
+                self.__vision_module,
+                self.__state_module,
             ),
-            "move_to_room": MoveToRoom(self.navigation_module, self.state_module),
-            "move_to_human": MoveToHuman(self.navigation_module, self.state_module),
-            "pickup_object": PickUpObject(self.interaction_module),
-            "give_object": GiveObject(self.interaction_module),
-            "do_i_see_object": DoISeeObject(self.vision_module),
+            "move_to_room": MoveToRoom(self.__navigation_module, self.__state_module),
+            "move_to_human": MoveToHuman(self.__navigation_module, self.__state_module),
+            "pickup_object": PickUpObject(self.__interaction_module),
+            "give_object": GiveObject(self.__interaction_module),
+            "do_i_see": DoISee(self.__vision_module),
+            "look_around_for": LookAround(
+                self.__navigation_module, self.__vision_module
+            ),
         }
 
         print("Creating planner")
@@ -68,8 +72,8 @@ class RobotEngine(Node):
 
     def spin(self):
         self.__executor.add_node(self)
-        self.__executor.add_node(self.interaction_module)
-        self.__executor.add_node(self.navigation_module)
-        self.__executor.add_node(self.vision_module)
-        self.__executor.add_node(self.state_module)
+        self.__executor.add_node(self.__interaction_module)
+        self.__executor.add_node(self.__navigation_module)
+        self.__executor.add_node(self.__vision_module)
+        self.__executor.add_node(self.__state_module)
         Thread(target=self.__executor.spin, daemon=True).start()

@@ -5,6 +5,7 @@ import rclpy
 from rclpy.node import Client
 
 from typing import Optional, Tuple, List, Union
+from math import pi
 
 from capstone_interfaces.srv import ObjectIDQuery
 from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
@@ -277,9 +278,9 @@ class GiveObject(Action):
         return GiveObject(self.__give_client)
 
 
-class DoISeeObject(Action):
+class DoISee(Action):
     """
-    DoISeeObject will return whether or not the robot has recently seen
+    DoISee will return whether or not the robot has recently seen
     a given object with the label provided within a set time window
     and distance of the robot. It returns a tuple of (success, message),
     where message is set for the "why" in the event of not seeing it.
@@ -305,4 +306,56 @@ class DoISeeObject(Action):
         pass
 
     def clone(self):
-        return DoISeeObject(self.__vision)
+        return DoISee(self.__vision)
+
+
+class LookAround(Action):
+    """
+    LookAround will spin the robot around in place
+    """
+
+    def __init__(self, navigation: NavigationModule, vision: VisionModule):
+        super().__init__("LookAround")
+        self.__vision = vision
+        self.__navigation = navigation
+        self.__cancel_flag = False
+        self.__cancel_lock = Lock()
+
+    def _execute(self, object_to_look_for: Union[str, int]):
+        """
+        Send a give object request
+        """
+        with self.__cancel_lock:
+            self.__cancel_flag = False
+        # Rotate pi / 2 radians, checking each time if
+        # we've seen the object we're looking for yet
+
+        # Check before spinning
+        self.__vision.is_nearby_since(object_to_look_for, 5.0, 5.0)
+
+        for rotation in range(pi / 2, 2 * pi, pi / 2):
+            self.__navigation.rotate(rotation)
+
+            # Check to see if we canceled the rotation since rotating
+            with self.__cancel_lock:
+                if self.__cancel_flag:
+                    self._set_result(False)
+                    return
+
+            if self.__vision.is_nearby_since(object_to_look_for, 5.0, 5.0):
+                self._set_result(True)
+                return
+
+        # If we've made it here, we didn't see it
+        self._set_result(False)
+
+    def _cancel(self):
+        """
+        There is no real cancellation of this action as is
+        """
+        with self.__cancel_lock:
+            self.__cancel_flag = True
+        self.__navigation.cancel()
+
+    def clone(self):
+        return LookAround(self.__vision)
