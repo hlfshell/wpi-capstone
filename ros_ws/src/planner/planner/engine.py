@@ -39,7 +39,6 @@ class RobotEngine(Node):
 
         self.__executor = rclpy.executors.MultiThreadedExecutor()
 
-        print("making modules")
         # Modules
         self.__interaction_module = InteractionModule()
         self.__navigation_module = NavigationModule()
@@ -47,7 +46,6 @@ class RobotEngine(Node):
         self.__state_module = StateModule()
 
         # Actions
-        print("Creating Actions")
         actions: Dict[str, Action] = {
             "move_to_object": MoveToObject(
                 self.__navigation_module,
@@ -56,15 +54,16 @@ class RobotEngine(Node):
             ),
             "move_to_room": MoveToRoom(self.__navigation_module, self.__state_module),
             "move_to_human": MoveToHuman(self.__navigation_module, self.__state_module),
-            "pickup_object": PickUpObject(self.__interaction_module),
-            "give_object": GiveObject(self.__interaction_module),
+            "pickup_object": PickUpObject(
+                self.__interaction_module, self.__state_module
+            ),
+            "give_object": GiveObject(self.__interaction_module, self.__state_module),
             "do_i_see": DoISee(self.__vision_module),
             "look_around_for": LookAround(
                 self.__navigation_module, self.__vision_module
             ),
         }
 
-        print("Creating planner")
         self.__action_planner = ActionPlanner(actions)
 
     def run(self, code: str):
