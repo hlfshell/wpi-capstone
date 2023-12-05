@@ -13,6 +13,7 @@ from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
 from capstone_interfaces.srv import GiveObject as GiveObjectMsg
 from capstone_interfaces.msg import StateObject, Room
 
+from litterbug.litterbug.map import Map
 from threading import Lock
 
 from planner.navigation import NavigationModule
@@ -192,30 +193,62 @@ class MoveToRoom(Action):
 
 
 class SearchAreaForObject(Action):
-    def __init__(self, navigator: NavigationModule, state: StateModule):
-        super().__init__("SearchRoomForObject")
-        self.segmentation_map =  #ndarray
 
-        
-        self.location = self
+    def __init__(self, navigator: NavigationModule, seg_map: Map):
+        super().__init__("SearchRoomForObject")
+        self.navigator = navigator
+        self.seg_map = seg_map
+        self.segmentation_map = seg_map.map  #the ndarray portion
+        self.world_location = navigator.get_current_position()
+        self.map_coords = seg_map.__meter_coordinates_to_pixel_coordinates(self.world_location)
+        self.room_seg = self.segmentation_map[self.map_coords]
+
 
     def _execute(self,  room_to_search: str, object_to_search_for: str):
         """ 
-        This function takes a segmentation map, room_to_search in text, and an object
-        to search for in text.  The room to search will be converted to room segmentation
-        number for use against the segemntation map in which room segemntation is noted
-        as int 1-N where N is number of rooms.  The robot should be at the room
-        centroid before this is called, otherwise it will error out.
+        This function takes a segmentation map and an object
+        to search for in text.  It is assumed that the room to seach is the room 
+        we're in, so first, see what segmented room we're in.  Segmentation is
+        int 1-N where N is number of rooms.  The robot should be at the room
+        centroid before this is called, but may not be.
         """
-        # get current coordinates
-        # look up room segmentation name, get segmentation number
-        # check that we're in the right room:current coord value==seg number
-        
+
         # while there are cells = segmentation number
-        #    see what we can see
-        #        turn 360 and relabel room seg number to room number+ .1
+        while self.room_seg in self.segmentation_map:
+           
+        #   see what we can see
+        #   turn 360 and relabel room seg number to room number+ .1
         #           to indicate that we can see all those grid coordinates
-        #           out to nearest boundary
+        #           out to nearest boundary using Map.robot_vision_radius and 
+        #           map.robot_vision_angle
+            max_dx_to_next_cluster=100000
+            next_stop_pt=[0,0]
+            angle = np.deg2rad(self.seg_map.__vison_angle)  #angle to turn based on vision angle
+
+            for i in range(round_up(2*np.pi/angle)):
+                # turn
+                self.navigator.spin_synchronous(angle)
+                # reestablish location
+                self.world_location = self.navigator.get_current_position()
+                self.map_coords = self.seg_map.__meter_coordinates_to_pixel_coordinates(self.world_location)
+
+                #find cells in room seg
+                room_cells = np.argwhere(self.segmentation_map = self.room_seg)
+                # fill in labels
+                for cell in room_cells:
+                    #if line of sight to it, relabel it slightly to know its covered
+                    dx_to_cell = self.seg_map.__distance(self.map_coords,cell)
+                    if self.seg_map.line_of_sight(self.map_coords, cell) and dx_to_cell <= self.seg_map.__vision_radius/self.seg_map.__resolution:
+                        self.segmentation_map[cell] = self.segmentation_map[cell]+.1
+                    else:
+                        if dx_to_cell < max_dx_to_next_cluster:
+                            next_stop_pt = cell
+                            max_dx_to_next_cluster=dx_to_cell
+
+
+
+
+
         #    find nearest non labelled cluster on segmentation map
         #    move to that cluster
         pass
@@ -302,6 +335,10 @@ class GiveObject(Action):
 
     def clone(self):
         return GiveObject(self.__give_client)
+
+def round_up(num: float) -> int:
+    result=-(-num//1)
+    return result
 
 
 class DoISeeObject(Action):
