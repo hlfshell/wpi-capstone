@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+from typing import List, Tuple, Optional
 
 import rclpy
-from rclpy.node import Node
-
-from capstone_interfaces.msg import Room, StateObject
+from threading import Lock
+from capstone_interfaces.msg import StateObject, Room, HumanSpotted
 from capstone_interfaces.srv import (
-    GetRooms,
     ObjectDescriptionQuery,
     ObjectIDQuery,
+    GetRooms,
     RoomByCoordinates,
 )
+from rclpy.node import Node
 
 
 class StateModule(Node):
@@ -34,6 +34,17 @@ class StateModule(Node):
         self.__room_by_location_client = self.create_client(
             RoomByCoordinates, "/room_by_location"
         )
+
+        # Human tracking
+        self.__human_subscription = self.create_subscription(
+            HumanSpotted,
+            "/human_spotted",
+            self.__human_callback,
+            qos_profile=10,  # Keep last
+        )
+        self.__human_lock = Lock()
+        self.__human_position = (0.0, 0.0)
+        self.__human_times_seen = 0
 
         self.wait_for_service()
 
@@ -113,6 +124,30 @@ class StateModule(Node):
             return None
         else:
             return response.room
+
+    def get_human_location(self) -> Tuple[float, float]:
+        """
+        get_human_location returns the last known location of the human
+        """
+        with self.__human_lock:
+            return self.__human_position
+
+    def __human_callback(self, msg: HumanSpotted):
+        with self.__human_lock:
+            if self.__human_times_seen < 100:
+                self.__human_times_seen += 1
+            # Don't adjust too heavily at any given moment
+            # but also don't penalize too heavily new data
+            delta = (msg.x - self.__human_position[0], msg.y - self.__human_position[1])
+            delta = (
+                delta[0] / self.__human_times_seen,
+                delta[1] / self.__human_times_seen,
+            )
+
+            self.__human_position = (
+                self.__human_position[0] + delta[0],
+                self.__human_position[1] + delta[1],
+            )
 
 
 class Object:

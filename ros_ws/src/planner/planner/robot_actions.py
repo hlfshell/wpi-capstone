@@ -147,9 +147,8 @@ class MoveToRoom(Action):
 
     def _execute(self, room_to_move_to: str):
         """ """
-        print("getting room", room_to_move_to)
         room = self.__get_room(room_to_move_to)
-        print("got room", room)
+
         if room is None:
             self._set_result((False, "room not known"))
             return
@@ -166,7 +165,7 @@ class MoveToRoom(Action):
         Get the room from the query_services
         """
         rooms = self.__state.get_rooms()
-        print("rooms gotten", rooms)
+
         for room in rooms:
             if room.name == room_name:
                 return room
@@ -177,6 +176,33 @@ class MoveToRoom(Action):
 
     def clone(self):
         return MoveToRoom(self.__navigator, self.__state)
+
+
+class MoveToHuman(Action):
+    """
+    MoveToHuman will move to our human on request
+    """
+
+    def __init__(self, navigator: NavigationModule, state: StateModule):
+        super().__init__("MoveToHuman")
+
+        self.__navigator = navigator
+        self.__state = state
+
+    def _execute(self):
+        """ """
+        location = self.__state.get_human_location()
+
+        result, msg = self.__navigator.move_to_synchronous(
+            location, distance_for_success=0.5
+        )
+        self._set_result((result, msg))
+
+    def _cancel(self):
+        self.__navigator.cancel()
+
+    def clone(self):
+        return MoveToHuman(self.__navigator, self.__state)
 
 
 class SearchAreaForObject(Action):
