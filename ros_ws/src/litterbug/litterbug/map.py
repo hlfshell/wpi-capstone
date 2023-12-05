@@ -177,7 +177,7 @@ class Map:
         x, y = point
         return (
             int((x - self.origin[0]) / self.__resolution),
-            int((y - self.origin[1]) / self.__resolution),
+            self.map.shape[0]-int((y - self.origin[1]) / self.__resolution),
         )
 
     def __pixel_coordinates_to_meter_coordinates(
@@ -190,7 +190,7 @@ class Map:
         x, y = point
         return (
             (x * self.__resolution) + self.origin[0],
-            (y * self.__resolution) + self.origin[1],
+            ((self.map.shape[0]-y )* self.__resolution) + self.origin[1],
         )
 
     def __distance(

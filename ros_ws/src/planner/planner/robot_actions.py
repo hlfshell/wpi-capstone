@@ -192,21 +192,37 @@ class MoveToRoom(Action):
 
 
 class SearchAreaForObject(Action):
-    def __init__(self):
+    def __init__(self, navigator: NavigationModule, state: StateModule):
         super().__init__("SearchRoomForObject")
+        self.segmentation_map =  #ndarray
 
-    def _execute(self, seg_map:np.ndarray, room_to_search: str, object_to_search_for: str):
+        
+        self.location = self
+
+    def _execute(self,  room_to_search: str, object_to_search_for: str):
         """ 
         This function takes a segmentation map, room_to_search in text, and an object
-        to serach for in text.  The room to search will be converted to room segmentation
-        for use against the segemntation map in which room segemntation is noted
-        as into
+        to search for in text.  The room to search will be converted to room segmentation
+        number for use against the segemntation map in which room segemntation is noted
+        as int 1-N where N is number of rooms.  The robot should be at the room
+        centroid before this is called, otherwise it will error out.
         """
-
+        # get current coordinates
+        # look up room segmentation name, get segmentation number
+        # check that we're in the right room:current coord value==seg number
+        
+        # while there are cells = segmentation number
+        #    see what we can see
+        #        turn 360 and relabel room seg number to room number+ .1
+        #           to indicate that we can see all those grid coordinates
+        #           out to nearest boundary
+        #    find nearest non labelled cluster on segmentation map
+        #    move to that cluster
         pass
+
 
     def _cancel(self):
-        pass
+        self.navigation.cancel()
 
     def clone(self):
         pass
