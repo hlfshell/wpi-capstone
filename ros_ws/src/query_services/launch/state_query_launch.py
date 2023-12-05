@@ -35,5 +35,10 @@ def generate_launch_description():
                 executable="rooms_service",
                 name="rooms_service_node",
             ),
+            Node(
+                package="query_services",
+                executable="human_service",
+                name="human_service_node",
+            ),
         ]
     )
