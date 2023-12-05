@@ -13,6 +13,7 @@ from capstone_interfaces.msg import StateObject, Room
 
 from threading import Lock
 
+from planner.interaction import InteractionModule
 from planner.navigation import NavigationModule
 from planner.vision import VisionModule
 from planner.state import StateModule
@@ -227,34 +228,16 @@ class PickUpObject(Action):
     event of a unsuccessful pickup.
     """
 
-    def __init__(self, pickup_client: Client):
+    def __init__(self, interaction_module: InteractionModule):
         super().__init__("PickUpObject")
-        self.__pickup_client = pickup_client
+        self.__interaction = interaction_module
 
-    def _execute(self, object_to_pickup: int):
+    def _execute(self, object_to_pickup: Union[str, int]):
         """
         Send a pickup object request
         """
-        print("executing", object_to_pickup)
-        object_to_pickup = str(object_to_pickup)
-        print("calling")
-        result = self.__pickup_client(object_to_pickup)
-        print("result", result)
-        # request: PickUpObjectMsg.Request = PickUpObjectMsg.Request()
-        # request.object = object_to_pickup
-        # print("making call")
-        # future = self.__pickup_client.call_async(request)
-        # print("spin time")
-        # rclpy.spin_until_future_complete(self, future)
-        # response: PickUpObjectMsg.Response = future.result()
-        # print("response", response)
-
-        # if not response.success:
-        #     self._set_result(False, response.status_message)
-        # else:
-        #     self._set_result(True)
-
-        # return
+        result = self.__interaction.pickup_object(object_to_pickup)
+        self._set_result(result)
 
     def _cancel(self):
         """
@@ -273,26 +256,16 @@ class GiveObject(Action):
     event of a unsuccessful pickup.
     """
 
-    def __init__(self, give_client: Client):
+    def __init__(self, interacton_module: InteractionModule):
         super().__init__("GiveObject")
-        self.__give_client = give_client
+        self.__interaction = interacton_module
 
     def _execute(self, object_to_give: str):
         """
         Send a give object request
         """
-        request: GiveObjectMsg.Request = GiveObjectMsg.Request()
-        request.object = object_to_give
-        future = self.__give_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        response: GiveObjectMsg.Response = future.result()
-
-        if not response.success:
-            self._set_result(False, response.status_message)
-        else:
-            self._set_result(True)
-
-        return
+        result = self.__interaction.give_object(object_to_give)
+        self._set_result(result)
 
     def _cancel(self):
         """
