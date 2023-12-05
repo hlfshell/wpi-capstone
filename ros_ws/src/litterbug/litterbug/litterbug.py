@@ -54,7 +54,7 @@ class Litterbug(Node):
         self,
         items: List[Item],
         map: Map,
-        interaction_range: float = 0.5,
+        interaction_range: float = 1.0,
         vision_range: float = 5.0,
         fov: float = math.radians(40.0),
         vision_fps: int = 12,
@@ -97,12 +97,12 @@ class Litterbug(Node):
         self.__human_spotted_times: int = 0
 
         # Vision and handling
+        self.__human_spotted_publisher = self.create_publisher(
+            msg_type=HumanSpotted,
+            topic="/human_spotted",
+            qos_profile=10,  # Keep last
+        )
         if self.__enable_vision_simulation:
-            self.__human_service = self.create_publisher(
-                msg_type=HumanSpotted,
-                topic="/human_spotted",
-                qos_profile=10,  # Keep last
-            )
             self.__object_spotted_publisher = self.create_publisher(
                 msg_type=ObjectSpotted,
                 topic="/object_spotted",
@@ -150,6 +150,15 @@ class Litterbug(Node):
                     with self.__human_position_lock:
                         self.__human_position = item.origin
                         self.__human_spotted_times = 1
+                        # Broadcast the human_spotted on init
+                        # to prep the query service and other
+                        # modules
+                        self.__human_spotted_publisher.publish(
+                            HumanSpotted(
+                                x=item.origin[0],
+                                y=item.origin[1],
+                            )
+                        )
                 try:
                     self.__gazebo.spawn_item(item)
                 except ItemAlreadyExists:
@@ -237,8 +246,6 @@ class Litterbug(Node):
         __pickup_object is the ROS service callback to pick up
         and object
         """
-        self.get_logger().debug(request.object)
-
         target = request.object.lower()
 
         # First confirm that we're not trying to break the first law
@@ -305,8 +312,6 @@ class Litterbug(Node):
         __give_object is the service callback for ROS requests to
         give an object to the human
         """
-        self.get_logger().debug(request.object)
-
         target = request.object.lower()
 
         # Do we have the item in our posession?
@@ -560,7 +565,7 @@ class Litterbug(Node):
                 # publish its fuzzed coordinates
                 x, y, z = self.__fuzzy_coordinates(item.origin)
                 if item.label in HUMAN_LABELS:
-                    self.__human_service.publish(
+                    self.__human_spotted_publisher.publish(
                         HumanSpotted(
                             x=x,
                             y=y,
