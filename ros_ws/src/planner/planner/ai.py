@@ -108,7 +108,6 @@ class AI:
                 future = executor.submit(self.__llm.prompt, prompts)
                 futures.append(future)
 
-        print("futures", futures)
         wait(futures)
         outputs: List[str] = []
         for future in futures:
@@ -167,7 +166,6 @@ bathroom:
                 # If we've reached this our code is fine
                 potential_plans.append(plan)
             except Exception as e:  # noqa
-                print("error w/ plan", index, e)
                 pass
 
         # If we have only one or no plans, remaining, return
@@ -204,8 +202,6 @@ bathroom:
                 future = executor.submit(self.__llm.prompt, prompts, json=True)
                 futures.append(future)
 
-        print("Potentials", len(potential_plans))
-        print("futures", futures)
         wait(futures)
 
         # Scores are a dict with key being the plan
@@ -221,7 +217,6 @@ bathroom:
                 # Convert the text response into a dict
                 # for easier processing
                 response = ast.literal_eval(response)
-                # print(">>", response)
                 response = response["results"]
                 for item in response:
                     plan = item["plan"]
@@ -245,13 +240,7 @@ bathroom:
         best one according to the LLM's rating system. If
         no plans are valid, None is returned.
         """
-        scores, reasons = self.rate_plans(objective, plans)
-
-        print("=== SCORES ===")
-        print(scores)
-        print("=== REASONS ===")
-        print(reasons)
-        print("=== END ===")
+        scores, _ = self.rate_plans(objective, plans)
 
         if len(scores) == 0:
             return None
