@@ -10,11 +10,10 @@ from capstone_interfaces.msg import StateObject, Room
 from capstone_interfaces.srv import PlannerQuery, GetRooms
 from nav_msgs.msg import Odometry
 
-# Get package directory for file loading ROS2
 from ament_index_python.packages import get_package_share_directory
 from os import path
 
-from threading import Lock
+from threading import Lock, Thread
 from concurrent.futures import Future, wait, ThreadPoolExecutor
 
 from math import sqrt
@@ -73,6 +72,8 @@ class AI(Node):
         self.__room_query = self.create_client(GetRooms, "/get_rooms")
         self.__state_query.wait_for_service()
         self.__room_query.wait_for_service()
+
+        self.__executor = None
 
     def generate_plan(self, objective: str) -> str:
         """
@@ -324,3 +325,14 @@ class AI(Node):
         Given two locations, return the euclidean distance between them
         """
         return sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
+    def spin(self):
+        """
+        Thread safe non blocking spin function
+        """
+        if self.__executor is not None:
+            raise Exception("already spinning")
+
+        self.__executor = rclpy.executors.MultiThreadedExecutor()
+        self.__executor.add_node(self)
+        Thread(target=self.__executor.spin, daemon=True).start()
