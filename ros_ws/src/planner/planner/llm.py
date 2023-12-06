@@ -30,7 +30,16 @@ class OpenAI(LLM):
         else:
             self.__model = model
 
-    def prompt(self, prompt: Union[str, List[str]], temperature: float = 0.7) -> str:
+    def prompt(
+        self,
+        prompt: Union[str, List[str]],
+        temperature: float = 0.7,
+        model: Optional[str] = None,
+        json: bool = False,
+    ) -> str:
+        if model is None:
+            model = self.__model
+
         messages = []
 
         if isinstance(prompt, str):
@@ -39,13 +48,29 @@ class OpenAI(LLM):
             for p in prompt:
                 messages.append({"role": "system", "content": p})
 
-        response = openai.ChatCompletion.create(
-            model=self.__model,
-            temperature=temperature,
-            max_tokens=4096,
-            top_p=1,
-            messages=messages,
-        )
+        # for index, message in enumerate(messages):
+        #     print("===")
+        #     print(index + 1)
+        #     print(type(message["content"]))
+        #     print(len(message))
+        #     print(len(message["content"]))
+        #     print(message)
+        #     print("===")
+
+        try:
+            response = openai.ChatCompletion.create(
+                model=model,
+                temperature=temperature,
+                response_format={"type": "json_object" if json else "text"},
+                max_tokens=4096,
+                top_p=1,
+                messages=messages,
+            )
+        except Exception as e:
+            print("Error with prompt:")
+            print(e)
+            raise e
+
         return response.choices[0].message.content
 
     def clean_response(self, output: str) -> str:
