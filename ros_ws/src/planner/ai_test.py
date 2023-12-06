@@ -40,4 +40,8 @@ Your objective is to: Get the user a drink
     """,
 ]
 
-print(llm.prompt(prompts, temperature=0.7))
+response = llm.prompt(prompts, temperature=0.7)
+print("***")
+print(response)
+print("***")
+print(llm.clean_response(response))

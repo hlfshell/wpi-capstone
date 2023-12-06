@@ -47,3 +47,20 @@ class OpenAI(LLM):
             messages=messages,
         )
         return response.choices[0].message.content
+
+    def clean_response(self, output: str) -> str:
+        """
+        Removes common things the AI puts around the python code we
+        want
+        """
+        # Check to see if '''python or ``` is in the output
+        if "```python" in output:
+            output = output.split("```python")[1]
+            output = output.split("```")[0]
+        elif "```" in output:
+            output = output.split("```")[1]
+
+        # Strip useless ending/start whitespace
+        output = output.strip()
+
+        return output
