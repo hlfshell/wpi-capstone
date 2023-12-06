@@ -1,3 +1,3 @@
-string plan_id
+string id
 string status
 string message
