@@ -40,7 +40,7 @@ class RoomService(Node):
         self.__segmentation_map = SegmentationMap(map_path, self.__rooms)
 
         self.__get_rooms_service = self.create_service(
-            GetRooms, "/get_rooms", self.__get_room_callback
+            GetRooms, "/get_rooms", self.__get_rooms_callback
         )
         self.__room_by_location_service = self.create_service(
             RoomByCoordinates, "/room_by_location", self.__room_by_location_callback
@@ -52,11 +52,11 @@ class RoomService(Node):
             create_room_table(db, self)
 
             # Query all existing rooms
-            sql = "SELECT name, x, y FROM rooms"
+            sql = "SELECT id, name, x, y FROM rooms"
 
             rows = db.cursor().execute(sql).fetchall()
             for row in rows:
-                self.__rooms.append(Room(row[0], (row[1], row[2])))
+                self.__rooms.append(Room(row[0], row[1], (row[2], row[3])))
 
             db.close()
 
@@ -68,7 +68,7 @@ class RoomService(Node):
         """
         return self.__segmentation_map.get_room(location)
 
-    def __get_room_callback(
+    def __get_rooms_callback(
         self, msg: GetRooms.Request, response: GetRooms.Response
     ) -> GetRooms.Response:
         """
@@ -76,7 +76,8 @@ class RoomService(Node):
         """
         with self.__rooms_lock:
             rooms = [
-                RoomMsg(name=room.name, location=room.location) for room in self.__rooms
+                RoomMsg(name=room.name, x=room.location[0], y=room.location[1])
+                for room in self.__rooms
             ]
 
             response.rooms = rooms

@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import rclpy
 from ament_index_python.packages import get_package_share_directory
-from capstone_interfaces.msg import ObjectSpotted
+from capstone_interfaces.msg import ObjectSpotted, HumanSpotted
 from capstone_interfaces.srv import GiveObject, PickUpObject
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -54,7 +54,7 @@ class Litterbug(Node):
         self,
         items: List[Item],
         map: Map,
-        interaction_range: float = 0.5,
+        interaction_range: float = 1.0,
         vision_range: float = 5.0,
         fov: float = math.radians(40.0),
         vision_fps: int = 12,
@@ -90,11 +90,18 @@ class Litterbug(Node):
         self.__robot_location: Tuple[float, float] = (0.0, 0.0)
         self.__robot_orientation: float = 0.0  # radians
 
-        # Track the human (We're assuming one)
+        # Track the human (We're assuming one, unmoving... physically,
+        # not emotionally)
         self.__human_position_lock = Lock()
         self.__human_position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+        self.__human_spotted_times: int = 0
 
         # Vision and handling
+        self.__human_spotted_publisher = self.create_publisher(
+            msg_type=HumanSpotted,
+            topic="/human_spotted",
+            qos_profile=10,  # Keep last
+        )
         if self.__enable_vision_simulation:
             self.__object_spotted_publisher = self.create_publisher(
                 msg_type=ObjectSpotted,
@@ -104,6 +111,14 @@ class Litterbug(Node):
 
             # Emulate our camera at the set fps
             self.create_timer(1.0 / vision_fps, self.vision_scan)
+        else:
+            # If we aren't the source of human detection, we
+            # need to subscribe to it
+            self.__human_subscription = self.create_subscription(
+                msg_type=HumanSpotted,
+                topic="/human_spotted",
+                callback=self.__human_spotted_callback,
+            )
 
         # Track the changes in the world's objects at 5Hz
         # so we react to them as we'd expect w/ interactions
@@ -131,6 +146,19 @@ class Litterbug(Node):
         """
         with self.__world_items_lock:
             for item in self.__world_items:
+                if item.label in HUMAN_LABELS:
+                    with self.__human_position_lock:
+                        self.__human_position = item.origin
+                        self.__human_spotted_times = 1
+                        # Broadcast the human_spotted on init
+                        # to prep the query service and other
+                        # modules
+                        self.__human_spotted_publisher.publish(
+                            HumanSpotted(
+                                x=item.origin[0],
+                                y=item.origin[1],
+                            )
+                        )
                 try:
                     self.__gazebo.spawn_item(item)
                 except ItemAlreadyExists:
@@ -163,7 +191,7 @@ class Litterbug(Node):
         world if it exists and is within range/pickupable.
         If so, it gets added to the robot's inventory and
         removed from the world otherwise. If not, it will
-        raise a
+        raise a CanNotPickUpObject exception
         """
         # Double check item proximity
         if not self.__proximity_check(item):
@@ -178,6 +206,39 @@ class Litterbug(Node):
                 # Add it to our robot posessions
                 self.__robots_possession.append(item)
 
+    def __human_spotted_callback(self, human: HumanSpotted):
+        """
+        __human_spotted_callback is the callback for when
+        the human is spotted by the vision system. It will
+        update the human's position.
+        """
+        with self.__human_position_lock:
+            if self.__human_spotted_times < 100:
+                self.__human_spotted_times += 1
+
+            # The delta is based no how many times we've seen the
+            # human. Over time, we limit the minimization
+            # of how much we adjust based on the delta
+            # as we don't want to minimize future updates
+            # from having a real effect.
+            delta = (
+                human.x - self.__human_position[0],
+                human.y - self.__human_position[1],
+                human.z - self.__human_position[2],
+            )
+
+            delta = (
+                delta[0] / self.__human_spotted_times,
+                delta[1] / self.__human_spotted_times,
+                delta[2] / self.__human_spotted_times,
+            )
+
+            self.__human_position = (
+                self.__human_position[0] + delta[0],
+                self.__human_position[1] + delta[1],
+                self.__human_position[2] + delta[2],
+            )
+
     def __pickup_object(
         self, request: PickUpObject.Request, response: PickUpObject.Response
     ):
@@ -185,8 +246,6 @@ class Litterbug(Node):
         __pickup_object is the ROS service callback to pick up
         and object
         """
-        self.get_logger().debug(request.object)
-
         target = request.object.lower()
 
         # First confirm that we're not trying to break the first law
@@ -253,8 +312,6 @@ class Litterbug(Node):
         __give_object is the service callback for ROS requests to
         give an object to the human
         """
-        self.get_logger().debug(request.object)
-
         target = request.object.lower()
 
         # Do we have the item in our posession?
@@ -507,14 +564,22 @@ class Litterbug(Node):
                 # We are in fact spotting the object, so let's
                 # publish its fuzzed coordinates
                 x, y, z = self.__fuzzy_coordinates(item.origin)
-                self.__object_spotted_publisher.publish(
-                    ObjectSpotted(
-                        description=item.name,
-                        x=x,
-                        y=y,
-                        z=z,
+                if item.label in HUMAN_LABELS:
+                    self.__human_spotted_publisher.publish(
+                        HumanSpotted(
+                            x=x,
+                            y=y,
+                        )
                     )
-                )
+                else:
+                    self.__object_spotted_publisher.publish(
+                        ObjectSpotted(
+                            description=item.label,
+                            x=x,
+                            y=y,
+                            z=z,
+                        )
+                    )
 
         return items
 
@@ -547,7 +612,7 @@ class Litterbug(Node):
                 # If it's a human, we update the human's position
                 # and not an item in the world inventory since we
                 # can't interact with it beyond giving stuff
-                if item.label == "human":
+                if item.label in HUMAN_LABELS:
                     with self.__human_position_lock:
                         self.__human_position = item.origin
 
@@ -631,6 +696,9 @@ class CanNotGiveObject(Exception):
 
     def __str__(self):
         return f"Can not place {self.item} - {self.reason}"
+
+
+HUMAN_LABELS = ["human", "person", "man", "woman"]
 
 
 def main(args=None):

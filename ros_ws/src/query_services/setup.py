@@ -35,6 +35,7 @@ setup(
             "qa_service = query_services.qa_service:main",
             "new_object = query_services.vision_subscriber:main",
             "rooms_service = query_services.room_service:main",
+            "human_service = query_services.human_location:main",
         ],
     },
 )

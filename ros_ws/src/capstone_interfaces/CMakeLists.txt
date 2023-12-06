@@ -37,6 +37,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Room.msg"
   "srv/GetRooms.srv"
   "srv/RoomByCoordinates.srv"
+  "msg/HumanSpotted.msg"
+  "msg/HumanPose.msg"
+  "srv/QueryHumanLocation.srv"
   DEPENDENCIES builtin_interfaces
 )
 
