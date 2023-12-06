@@ -1,15 +1,20 @@
+import rclpy
 from planner.ai import AI
 from planner.llm import OpenAI
 
-# from planner.tmp import AI
+from threading import Thread
 
+import time
+
+# from planner.tmp import AI
+rclpy.init()
 
 planning_prompt = open("./prompts/planning.prompt", "r").read()
 functions_prompt = open("./prompts/functions.prompt", "r").read()
 rating_prompt = open("./prompts/rating.prompt", "r").read()
 
-# llm = OpenAI(model="gpt-4-1106-preview")
-llm = OpenAI()
+llm = OpenAI(model="gpt-4-1106-preview")
+# llm = OpenAI()
 # ai = AI(llm)
 
 # print(llm.prompt("Hi there!"))
@@ -50,16 +55,21 @@ llm = OpenAI()
 # print(response)
 # print("***")
 # print(llm.clean_response(response))
-ai = AI(llm, planning_prompt, functions_prompt, rating_prompt)
 # Time the following call
-import time
+ai = AI(llm, planning_prompt, functions_prompt, rating_prompt)
+# import time
+executor = rclpy.executors.MultiThreadedExecutor()
+executor.add_node(ai)
+Thread(target=executor.spin, daemon=True).start()
 
 # start = time.time()
 # outputs = ai.generate_plan("Get the user a drink")
 # end = time.time()
 # print(f"Time taken single: {end - start}")
 
+# print("generating state prompt")
 objective = "Get the user a drink"
+# print(ai.generate_state_prompt(objective))
 
 start = time.time()
 plans = ai.generate_plans(objective)
@@ -72,13 +82,13 @@ for index, output in enumerate(plans):
     print(output)
     print("----")
 
-# print("Rating:")
-# start = time.time()
-# ratings, reasons = ai.rate_plans(objective, plans)
-# end = time.time()
-# print(f"Time taken rating: {end - start}")
-# print("ratings", ratings)
-# print("reasons", reasons)
+# # print("Rating:")
+# # start = time.time()
+# # ratings, reasons = ai.rate_plans(objective, plans)
+# # end = time.time()
+# # print(f"Time taken rating: {end - start}")
+# # print("ratings", ratings)
+# # print("reasons", reasons)
 
 print("----")
 start = time.time()

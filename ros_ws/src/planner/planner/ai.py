@@ -1,21 +1,26 @@
+import rclpy
+from rclpy.node import Node
+
 import ast
 from planner.llm import LLM
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
-from capstone_interfaces.msg import StateObject
-
-# from capstone_interfaces.srv import GetAllObjects
+from capstone_interfaces.msg import StateObject, Room
+from capstone_interfaces.srv import PlannerQuery, GetRooms
+from nav_msgs.msg import Odometry
 
 # Get package directory for file loading ROS2
 from ament_index_python.packages import get_package_share_directory
 from os import path
 
-from threading import Thread, Lock
+from threading import Lock
 from concurrent.futures import Future, wait, ThreadPoolExecutor
 
+from math import sqrt
 
-class AI:
+
+class AI(Node):
     """
     AI is a class that utilizes an LLM to generate pythonic
     code to solve for objectives, determine the state of
@@ -30,6 +35,7 @@ class AI:
         functions_prompt: Optional[str] = None,
         rating_prompt: Optional[str] = None,
     ):
+        super().__init__("ai")
         self.__llm = llm
 
         if planning_prompt is None or functions_prompt is None or rating_prompt is None:
@@ -54,11 +60,25 @@ class AI:
         else:
             self.__rating_prompt = rating_prompt
 
+        self.__robot_position_lock = Lock()
+        self.__robot_position: Tuple[float, float] = (0.0, 0.0)
+        self.__robot_position_client = self.create_subscription(
+            Odometry,
+            "/odom",
+            self.__pose_callback,
+            qos_profile=10,  # Keep last
+        )
+
+        self.__state_query = self.create_client(PlannerQuery, "/general_query")
+        self.__room_query = self.create_client(GetRooms, "/get_rooms")
+        self.__state_query.wait_for_service()
+        self.__room_query.wait_for_service()
+
     def generate_plan(self, objective: str) -> str:
         """
         Generate a plan for the given objective
         """
-        state_prompt = self.generate_state_prompt()
+        state_prompt = self.generate_state_prompt(objective)
         instructions_prompt = "Remember, do not reply with anything but python code to accomplish your goal."
         objective_str = f"Your objective is to: {objective}"
 
@@ -87,7 +107,7 @@ class AI:
         at once and returns all that succeed. Failure on any
         one is ignored for speed.
         """
-        state_prompt = self.generate_state_prompt()
+        state_prompt = self.generate_state_prompt(objective)
         instructions_prompt = "Remember, do not reply with anything but python code to accomplish your goal."
         objective_str = f"Your objective is to: {objective}"
 
@@ -96,7 +116,7 @@ class AI:
             self.__functions_prompt,
             state_prompt,
             instructions_prompt,
-            self.generate_state_prompt(),
+            state_prompt,
             objective_str,
         ]
 
@@ -118,32 +138,38 @@ class AI:
 
         return outputs
 
-    def generate_state_prompt(self) -> str:
+    def generate_state_prompt(self, objective: str) -> str:
         """
         When called, this function queries the state management
         system for all known objects. It then builds a
         comprehensive string describing the state of the world
         as we know it.
         """
-        return """
-You know about the following rooms and objects. The objects are presented in the format of id# - label
+        with self.__robot_position_lock:
+            robot_position = self.__robot_position
 
-kitchen:
-    1 - apple
-    22 - coke_can
-    31 - orange
-    12 - wine
-    9 - book
-living_room:
-    14 - tv
-    21 - book
-    19 - coke_can
-    11 - remote_control
-bathroom:
-    13 - toothbrush
-    27 - medicine
-    3 - hairbrush
-    """
+        # Get the list of all known rooms
+        rooms = self.__get_rooms()
+
+        prompt = "You are aware of the following rooms:\n"
+        for room in rooms:
+            distance = self.__distance(robot_position, (room.x, room.y))
+            prompt += f"\t{room.name} - {distance:.2f}m away\n"
+
+        items = self.__get_related_items(objective)
+        items_by_room: Dict[str, List[StateObject]] = {}
+        for item in items:
+            if item.location not in items_by_room:
+                items_by_room[item.location] = []
+            items_by_room[item.location].append(item)
+
+        prompt += "You are aware of the following items (ID - label - distance) related to your mission:\n"
+        for room, items in items_by_room.items():
+            prompt += f"\t{room}:\n"
+            for item in items:
+                distance = self.__distance(robot_position, (item.x, item.y))
+                prompt += f"\t\t{item.id} - {item.description} - {distance:.2f}m away\n"
+        return prompt
 
     def rate_plans(
         self, objective: str, plans: List[str], raters: int = 5
@@ -155,8 +181,6 @@ bathroom:
         a plan's index is not listed it is because it was
         determined invalid and should not be considered at all.
         """
-        rating: List[int] = []
-
         # First we eliminate plans that can not be executed
         # via syntax check
         potential_plans: List[str] = []
@@ -171,15 +195,12 @@ bathroom:
         # If we have only one or no plans, remaining, return
         # them.
         if len(potential_plans) == 0:
-            return []
+            return {}, {}
         elif len(potential_plans) == 1:
-            return [
-                {
-                    "plan": plans.index(potential_plans[0]),
-                    "rating": 5,
-                    "reason": "Only one that worked",
-                }
-            ]
+            surviving_index = plans.index(potential_plans[0])
+            return {surviving_index: 5}, {
+                surviving_index: ["this is the only plan that worked"]
+            }
 
         # Compile a prompt for asking the LLM to rate the plans
         prompts = [
@@ -262,5 +283,44 @@ bathroom:
         """
         return f"Plan {index}:\n```python\n{plan}\n```"
 
-    def __get_all_objects(self) -> List[StateObject]:
-        pass
+    def __pose_callback(self, msg: Odometry):
+        """
+        Updates our knowledge of where the robot is located
+        in the real world
+        """
+        with self.__robot_position_lock:
+            self.__robot_position = (msg.pose.pose.position.x, msg.pose.pose.position.y)
+
+    def __get_rooms(self) -> List[Room]:
+        """
+        get_rooms returns all known rooms
+        """
+        request = GetRooms.Request()
+
+        future = self.__room_query.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        response: GetRooms.Response = future.result()
+
+        return response.rooms
+
+    def __get_related_items(self, objective: str) -> List[StateObject]:
+        """
+        Given an objective, return all objects that are
+        related to it for our state prompts
+        """
+        request = PlannerQuery.Request()
+        request.question = objective
+
+        future = self.__state_query.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        response: PlannerQuery.Response = future.result()
+
+        return response.objects
+
+    def __distance(self, a: Tuple[float, float], b: Tuple[float, float]) -> float:
+        """
+        Given two locations, return the euclidean distance between them
+        """
+        return sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
