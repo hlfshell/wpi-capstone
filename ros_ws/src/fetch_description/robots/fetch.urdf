@@ -44,7 +44,50 @@
     <child link="base_footprint" />
   </joint>
 
-  <!-- May need to add 4 casters-->
+  <!-- Add four casters to the base -->
+  <xacro:macro name="caster" params="prefix joint_x joint_y">
+  <link name="${prefix}_caster_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <sphere radius="0.0601"/> <!-- 0.06033 -->
+      </geometry>
+      <material name="">
+        <color rgba="0.086 0.506 0.767 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <sphere radius="0.0601"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.01"/>
+    </inertial>
+  </link>
+  <gazebo reference="${prefix}_caster_link">
+    <mu1>0.1</mu1>
+    <mu2>0.1</mu2>
+    <kp>100000000</kp>
+    <kd>10.0</kd>
+    <maxVel>10</maxVel>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <joint name="${prefix}_caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="${prefix}_caster_link"/>
+    <origin rpy="0 0 0" xyz="${joint_x} ${joint_y} 0.055325"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  </xacro:macro>
+  <xacro:caster prefix="fl" joint_x="0.15" joint_y="0.12"/>
+  <xacro:caster prefix="fr" joint_x="0.15" joint_y="-0.12"/>
+  <xacro:caster prefix="br" joint_x="-0.2" joint_y="0.12"/>
+  <xacro:caster prefix="bl" joint_x="-0.2" joint_y="-0.12"/>
+
   <link name="r_wheel_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0" />
@@ -672,6 +715,7 @@
     <parent link="head_camera_depth_frame" />
     <child link="head_camera_depth_optical_frame" />
  </joint>
+
 <!-- 
   robot_control: This code provides information about the robot's joints,
   including their state and command interfaces.
@@ -807,6 +851,124 @@
     <parameters>$(find fetch_description)/config/fetch_description_controllers.yaml</parameters>
   </plugin>
  </gazebo>
+  <!-- IMU Gazebo information-->
+  <link name="imu_link">
+  <visual>
+    <geometry>
+      <box size="0.1 0.1 0.1"/>
+    </geometry>
+  </visual>
+
+  <collision>
+    <geometry>
+      <box size="0.1 0.1 0.1"/>
+    </geometry>
+  </collision>
+
+</link>
+<joint name="imu_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="imu_link"/>
+  <origin xyz="0 0 0.2878"/>
+</joint>
+
+ <gazebo reference="imu_link">
+  <sensor name="imu_sensor" type="imu">
+   <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+      <ros>
+        <namespace>/demo</namespace>
+        <remapping>~/out:=imu</remapping>
+      </ros>
+      <initial_orientation_as_reference>false</initial_orientation_as_reference>
+    </plugin>
+    <always_on>true</always_on>
+    <update_rate>100</update_rate>
+    <visualize>true</visualize>
+    <imu>
+      <angular_velocity>
+        <x>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>2e-4</stddev>
+            <bias_mean>0.0000075</bias_mean>
+            <bias_stddev>0.0000008</bias_stddev>
+          </noise>
+        </x>
+        <y>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>2e-4</stddev>
+            <bias_mean>0.0000075</bias_mean>
+            <bias_stddev>0.0000008</bias_stddev>
+          </noise>
+        </y>
+        <z>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>2e-4</stddev>
+            <bias_mean>0.0000075</bias_mean>
+            <bias_stddev>0.0000008</bias_stddev>
+          </noise>
+        </z>
+      </angular_velocity>
+      <linear_acceleration>
+        <x>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>1.7e-2</stddev>
+            <bias_mean>0.1</bias_mean>
+            <bias_stddev>0.001</bias_stddev>
+          </noise>
+        </x>
+        <y>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>1.7e-2</stddev>
+            <bias_mean>0.1</bias_mean>
+            <bias_stddev>0.001</bias_stddev>
+          </noise>
+        </y>
+        <z>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>1.7e-2</stddev>
+            <bias_mean>0.1</bias_mean>
+            <bias_stddev>0.001</bias_stddev>
+          </noise>
+        </z>
+      </linear_acceleration>
+    </imu>
+  </sensor>
+ </gazebo>
+ 
+ <!--diff_drive-->
+ <gazebo>
+  <plugin name='diff_drive' filename='libgazebo_ros_diff_drive.so'>
+    <ros>
+      <namespace>/demo</namespace>
+    </ros>
+
+    <!-- wheels -->
+    <left_joint>l_wheel_joint</left_joint>
+    <right_joint>r_wheel_joint</right_joint>
+
+    <!-- kinematics -->
+    <wheel_separation>2</wheel_separation>
+    <wheel_diameter>0.13</wheel_diameter>
+
+    <!-- limits -->
+    <max_wheel_torque>20</max_wheel_torque>
+    <max_wheel_acceleration>1.0</max_wheel_acceleration>
+
+    <!-- output -->
+    <publish_odom>true</publish_odom>
+    <publish_odom_tf>false</publish_odom_tf>
+    <publish_wheel_tf>true</publish_wheel_tf>
+
+    <odometry_frame>odom</odometry_frame>
+    <robot_base_frame>base_link</robot_base_frame>
+  </plugin>
+</gazebo>
 
 </robot>
 

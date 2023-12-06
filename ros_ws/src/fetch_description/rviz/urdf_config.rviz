@@ -1,6 +1,6 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
@@ -10,6 +10,8 @@ Panels:
         - /TF1
       Splitter Ratio: 0.5
     Tree Height: 557
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2  
 Visualization Manager:
   Class: ""
   Displays:
