@@ -29,7 +29,7 @@ def generate_launch_description():
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
-        parameters=[robot_description]
+        parameters=[robot_description, {'use_sim_time': True}]
     )
 
     load_joint_state_controller = ExecuteProcess(
@@ -49,6 +49,7 @@ def generate_launch_description():
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
+        parameters=[{'use_sim_time': True}]
     )
 
     robot_localization_node = launch_ros.actions.Node(
@@ -56,7 +57,7 @@ def generate_launch_description():
        executable='ekf_node',
        name='ekf_filter_node',
        output='screen',
-       parameters=[os.path.join(pkg_share, 'config/ekf.yaml'), {'use_sim_time': LaunchConfiguration('use_sim_time')}]
+       parameters=[os.path.join(pkg_share, 'config/ekf.yaml'), {'use_sim_time': True}]
     )
 
     rviz_node = launch_ros.actions.Node(
@@ -65,6 +66,7 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         arguments=['-d', default_rviz_config_path],
+        parameters=[{'use_sim_time': True}]
     )
 
     spawn_entity = Node(
@@ -75,8 +77,6 @@ def generate_launch_description():
     )
 
     return launch.LaunchDescription([
-        launch.actions.DeclareLaunchArgument(name='gui', default_value='True',
-                                            description='Flag to enable joint_state_publisher_gui'),
         launch.actions.DeclareLaunchArgument(name='model', default_value=default_model_path,
                                             description='Absolute path to robot urdf file'),
         launch.actions.DeclareLaunchArgument(name='rvizconfig', default_value=default_rviz_config_path,
