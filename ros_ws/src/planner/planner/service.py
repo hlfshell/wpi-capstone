@@ -1,13 +1,16 @@
 import rclpy
 from rclpy.node import Node
 
-from planner.llm import LLM
+from planner.ai import AI
 from planner.engine import RobotEngine
+from planner.llm import LLM
 
 from capstone_interfaces.msg import Objective, Plan, ObjectiveStatus
 
 from threading import Lock
 from typing import Optional, Dict, List
+
+from uuid import uuid4
 
 
 # Statuses
@@ -49,9 +52,9 @@ class Service(Node):
     resulting actions.
     """
 
-    def __init__(self, llm: LLM, engine: RobotEngine):
+    def __init__(self, ai: AI, engine: RobotEngine):
         super().__init__("planner")
-        self.__llm = llm
+        self.__ai = ai
         self.__engine = engine
 
         self.__plan_publisher = self.create_publisher(Plan, "plan", 10)
@@ -62,6 +65,7 @@ class Service(Node):
         # State memory
         self.__lock = Lock()
         self.__plan: str = ""
+        self.__plan_id: str = ""
         self.__objective: str = ""
         self.__objective_id: str = ""
         self.__status: ObjectiveStatus = ObjectiveStatus()
@@ -72,6 +76,7 @@ class Service(Node):
         )
 
         self.__plan_processor = self.create_timer(0.5, self.__process_plan)
+        self.__plan_executor = self.create_timer(0.5, self.__execute_plan)
 
     def __objective_callback(self, msg: Objective):
         """
@@ -88,7 +93,7 @@ class Service(Node):
 
         status = ObjectiveStatus(
             status=CREATED,
-            plan_id=self.__objective_id,
+            id=self.__objective_id,
             message="new objective received",
         )
 
@@ -97,6 +102,7 @@ class Service(Node):
             self.__objective = msg.objective
             self.__history[self.__objective_id] = [status]
             self.__plan = ""
+            self.__plan_id = ""
             self.__status = status
 
         self.__log_objective_status(status)
@@ -122,6 +128,7 @@ class Service(Node):
             self.__objective = ""
             self.__objective_id = ""
             self.__plan = ""
+            self.__plan_id = ""
 
         self.__log_objective_status(status)
         self.__objective_status_publisher.publish(status)
@@ -146,8 +153,82 @@ class Service(Node):
 
             status = ObjectiveStatus(
                 status=PLANNING,
-                plan_id=self.__objective_id,
+                id=self.__objective_id,
                 message="AI is now planning what to do",
+            )
+            self.__history[self.__objective_id].append(status)
+            self.__status = status
+
+            objective_id = self.__objective_id
+            objective = self.__objective
+
+        self.__log_objective_status(status)
+        self.__objective_status_publisher.publish(status)
+
+        attempts = 0
+        while True:
+            try:
+                plan_id = str(uuid4())
+                plans: List[str] = self.__ai.generate_plans(objective)
+                plan = self.__ai.get_best_plan(objective, plans)
+                break
+            except Exception as e:
+                self.get_logger().error(e)
+                attempts += 1
+                if attempts > 3:
+                    self.get_logger().error("failed to generate plan within 3 attempts")
+                    # set our status and broadcast our failure
+                    with self.__lock:
+                        status = ObjectiveStatus(
+                            status=ERROR,
+                            id=self.__objective_id,
+                            message="failed to generate plan after 3 attempts",
+                        )
+                        self.__history[self.__objective_id].append(status)
+                        self.__status = status
+                        self.__objective = ""
+                        self.__objective_id = ""
+                        self.__plan = ""
+                        self.__plan_id = ""
+                    self.__log_objective_status(status)
+                    self.__objective_status_publisher.publish(status)
+                    return
+
+        # Set our plan and announce its creation
+        with self.__lock:
+            self.__plan = plan
+            self.__plan_id = plan_id
+            status = ObjectiveStatus(
+                status=INIT,
+                id=self.__objective_id,
+                message="plan generated, initializing robot",
+            )
+            self.__history[self.__objective_id].append(status)
+            self.__status = status
+            self.__plan = plan
+        self.__log_objective_status(status)
+        self.__objective_status_publisher.publish(status)
+        self.__plan_publisher.publish(
+            Plan(id=plan_id, objective=objective_id, plan=plan)
+        )
+
+    def __execute_plan(self):
+        """
+        __execute_plan checks to see if a plan is marked in the
+        INIT status. If so, it will go ahead and attempt to execute
+        the plan. Success or failure, this function will announce
+        state changes appropriately.
+        """
+        with self.__lock:
+            if self.__plan_id == "" or self.__status.status != INIT:
+                return
+
+            plan = self.__plan
+
+            status = ObjectiveStatus(
+                status=RUNNING,
+                id=self.__objective_id,
+                message="plan is now running",
             )
             self.__history[self.__objective_id].append(status)
             self.__status = status
@@ -155,12 +236,55 @@ class Service(Node):
         self.__log_objective_status(status)
         self.__objective_status_publisher.publish(status)
 
+        try:
+            self.__engine.run(plan)
+
+        except Exception as e:
+            self.get_logger().error(e)
+            with self.__lock:
+                status = ObjectiveStatus(
+                    status=ERROR,
+                    id=self.__objective_id,
+                    message="plan failed to execute",
+                )
+                self.__history[self.__objective_id].append(status)
+                self.__status = status
+                self.__objective = ""
+                self.__objective_id = ""
+                self.__plan = ""
+                self.__plan_id = ""
+            self.__log_objective_status(status)
+            self.__objective_status_publisher.publish(status)
+            return
+
+        with self.__lock:
+            status = ObjectiveStatus(
+                status=COMPLETED,
+                id=self.__objective_id,
+                message="plan has completed executing",
+            )
+            self.__history[self.__objective_id].append(status)
+            self.__status = status
+            self.__objective = ""
+            self.__objective_id = ""
+            self.__plan = ""
+            self.__plan_id = ""
+        self.__log_objective_status(status)
+        self.__objective_status_publisher.publish(status)
+
 
 def main(args=None):
     rclpy.init(args=args)
 
+    # llm = LLM(model="gpt-4-1106-preview")
     llm = LLM()
-    service = Service(llm)
+    ai = AI(llm)
+    engine = RobotEngine()
+
+    ai.spin()
+    engine.spin()
+
+    service = Service(ai, engine)
 
     rclpy.spin(service)
 
