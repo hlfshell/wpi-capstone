@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 from time import sleep
 from typing import List, Tuple
 
 import rclpy
-from gazebo_msgs.srv import DeleteEntity, GetEntityState, GetModelList, SpawnEntity
-from rclpy.node import Node
-
+from gazebo_msgs.srv import (DeleteEntity, GetEntityState, GetModelList,
+                             SpawnEntity)
 from litterbug.items import Item
+from rclpy.node import Node
 
 
 class Gazebo(Node):

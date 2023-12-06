@@ -4,12 +4,11 @@ from typing import Optional, Tuple
 
 import cv2
 import rclpy
+from explorer.search import Explorer
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.srv import SaveMap
 from nav_msgs.msg import OccupancyGrid, Odometry
 from rclpy.node import Node
-
-from explorer.search import Explorer
 
 
 class SearchService(Node):

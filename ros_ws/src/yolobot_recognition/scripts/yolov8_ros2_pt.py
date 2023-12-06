@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-from ultralytics import YOLO
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
-
-from yolov8_msgs.msg import InferenceResult
-from yolov8_msgs.msg import Yolov8Inference
+from ultralytics import YOLO
+from yolov8_msgs.msg import InferenceResult, Yolov8Inference
 
 bridge = CvBridge()
 

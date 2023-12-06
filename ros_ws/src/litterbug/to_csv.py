@@ -1,5 +1,4 @@
 import rclpy
-
 from litterbug.gazebo import Gazebo
 
 rclpy.init()

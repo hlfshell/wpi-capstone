@@ -1,24 +1,20 @@
 from __future__ import annotations
-from planner.action import Action
 
-import rclpy
-from rclpy.node import Client
+from threading import Lock
+from typing import List, Optional, Tuple
 
 import numpy as np
-
-from typing import Optional, Tuple, List
-
+import rclpy
+from capstone_interfaces.msg import Room, StateObject
+from capstone_interfaces.srv import GiveObject as GiveObjectMsg
 from capstone_interfaces.srv import ObjectIDQuery
 from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
-from capstone_interfaces.srv import GiveObject as GiveObjectMsg
-from capstone_interfaces.msg import StateObject, Room
-
 from litterbug.litterbug.map import Map
-from threading import Lock
-
+from planner.action import Action
 from planner.navigation import NavigationModule
-from planner.vision import VisionModule
 from planner.state import StateModule
+from planner.vision import VisionModule
+from rclpy.node import Client
 
 """
 MoveToObject - move, uninterrupted if possible, to the last known location
@@ -192,13 +188,13 @@ class MoveToRoom(Action):
         return MoveToRoom(self.__navigator, self.__state)
 
 
-class SearchAreaForObject(Action):
+class SearchRoomForObject(Action):
 
     def __init__(self, navigator: NavigationModule, seg_map: Map):
         super().__init__("SearchRoomForObject")
         self.navigator = navigator
         self.seg_map = seg_map
-        self.segmentation_map = seg_map.map  #the ndarray portion
+        self.segmentation_map = seg_map.map  #the ndarray portion of the map object
         self.world_location = navigator.get_current_position()
         self.map_coords = seg_map.__meter_coordinates_to_pixel_coordinates(self.world_location)
         self.room_seg = self.segmentation_map[self.map_coords]
@@ -206,53 +202,51 @@ class SearchAreaForObject(Action):
 
     def _execute(self,  room_to_search: str, object_to_search_for: str):
         """ 
-        This function takes a segmentation map and an object
-        to search for in text.  It is assumed that the room to seach is the room 
-        we're in, so first, see what segmented room we're in.  Segmentation is
-        int 1-N where N is number of rooms.  The robot should be at the room
-        centroid before this is called, but may not be.
+        This function takes a segmentation map and does a thorough search using line of sight
+        It is assumed that the room to seach is the room we're in, 
+        so in inti we see what segmented room we're in.  Segmentation is
+        int 1-N where N is number of rooms.  The robot should be in the room
+        before this is called.  It does the planning on the nparray 
+        segementation map and translates any movements to wold coordinates.
         """
 
-        # while there are cells = segmentation number
+        # while there are cells = segmentation number to make sure we 
+        # search all
         while self.room_seg in self.segmentation_map:
-           
+
         #   see what we can see
         #   turn 360 and relabel room seg number to room number+ .1
         #           to indicate that we can see all those grid coordinates
-        #           out to nearest boundary using Map.robot_vision_radius and 
-        #           map.robot_vision_angle
+        #           out to nearest boundary using Map.robot_vision_radius 
+        #           and vision angle.
+            #initialize
             max_dx_to_next_cluster=100000
             next_stop_pt=[0,0]
             angle = np.deg2rad(self.seg_map.__vison_angle)  #angle to turn based on vision angle
 
+            # turn
             for i in range(round_up(2*np.pi/angle)):
-                # turn
                 self.navigator.spin_synchronous(angle)
                 # reestablish location
-                self.world_location = self.navigator.get_current_position()
+                self.world_location = self.navigator.get_current_position() #world coordinates
                 self.map_coords = self.seg_map.__meter_coordinates_to_pixel_coordinates(self.world_location)
 
-                #find cells in room seg
-                room_cells = np.argwhere(self.segmentation_map = self.room_seg)
-                # fill in labels
+                #find list  of cell indices in room
+                room_cells = np.argwhere(self.segmentation_map == self.room_seg)
+                # fill in new labels
                 for cell in room_cells:
                     #if line of sight to it, relabel it slightly to know its covered
                     dx_to_cell = self.seg_map.__distance(self.map_coords,cell)
                     if self.seg_map.line_of_sight(self.map_coords, cell) and dx_to_cell <= self.seg_map.__vision_radius/self.seg_map.__resolution:
                         self.segmentation_map[cell] = self.segmentation_map[cell]+.1
                     else:
+                        # stepwise set up nearest cell we  dont have line of sight to
                         if dx_to_cell < max_dx_to_next_cluster:
                             next_stop_pt = cell
                             max_dx_to_next_cluster=dx_to_cell
-
-
-
-
-
-        #    find nearest non labelled cluster on segmentation map
-        #    move to that cluster
-        pass
-
+            # move to that next nearest unlabelled cluster
+            next_world_pt= self.seg_map.__pixel_coordinates_to_meter_coordinates(next_stop_pt)
+            self.navigator.move_to(next_world_pt)
 
     def _cancel(self):
         self.navigation.cancel()

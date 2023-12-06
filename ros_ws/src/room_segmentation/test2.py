@@ -1,18 +1,10 @@
+from random import randint
+
 import cv2
 import numpy as np
-from cv2 import (
-    cvtColor,
-    GaussianBlur,
-    Canny,
-    imread,
-    findContours,
-    CHAIN_APPROX_NONE,
-    CHAIN_APPROX_SIMPLE,
-    contourArea,
-    arcLength,
-    approxPolyDP,
-)
-from random import randint
+from cv2 import (CHAIN_APPROX_NONE, CHAIN_APPROX_SIMPLE, Canny, GaussianBlur,
+                 approxPolyDP, arcLength, contourArea, cvtColor, findContours,
+                 imread)
 
 img = imread("./willowgarage.jpeg", cv2.IMREAD_GRAYSCALE)
 # img = imread("./fp1.jpeg", cv2.IMREAD_GRAYSCALE)

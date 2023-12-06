@@ -1,13 +1,10 @@
-from rclpy.node import Node
+import math
 from threading import Lock
-
+from time import time
+from typing import Dict, List, Optional, Tuple, Union
 
 from capstone_interfaces.msg import ObjectSpotted
-
-from typing import Dict, List, Union, Optional, Tuple
-
-from time import time
-import math
+from rclpy.node import Node
 
 
 class VisionModule(Node):

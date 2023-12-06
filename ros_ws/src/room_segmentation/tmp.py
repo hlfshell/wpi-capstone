@@ -1,9 +1,10 @@
-import cv2
-import numpy as np
 from random import randint
-from typing import Optional, Tuple, List, Union
-from skimage.transform import resize
+from typing import List, Optional, Tuple, Union
+
+import cv2
 import netpbmfile
+import numpy as np
+from skimage.transform import resize
 
 
 def room_segmentation(

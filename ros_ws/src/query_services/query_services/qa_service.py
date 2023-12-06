@@ -1,14 +1,13 @@
-from capstone_interfaces.srv import LLM, PlannerQuery
-from query_services import tools, database_functions
 import os
-import openai
-from langchain.embeddings import OpenAIEmbeddings
-import pandas as pd
-
 import sqlite3
 
-import rclpy
 import builtin_interfaces
+import openai
+import pandas as pd
+import rclpy
+from capstone_interfaces.srv import LLM, PlannerQuery
+from langchain.embeddings import OpenAIEmbeddings
+from query_services import database_functions, tools
 from rclpy.node import Node
 
 openai.api_key = os.getenv('OPENAI_API_KEY')

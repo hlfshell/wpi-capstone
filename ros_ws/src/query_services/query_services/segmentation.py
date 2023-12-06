@@ -1,13 +1,10 @@
-from query_services.room import Room
-
-from typing import List, Tuple, Optional, Dict
-
-import yaml
-import numpy as np
+from random import randint
+from typing import Dict, List, Optional, Tuple
 
 import cv2
-
-from random import randint
+import numpy as np
+import yaml
+from query_services.room import Room
 
 
 class SegmentationMap:

@@ -4,15 +4,10 @@ import math
 from typing import List, Optional, Tuple
 
 import rclpy
-from rclpy.node import Node
-
 from capstone_interfaces.msg import Room, StateObject
-from capstone_interfaces.srv import (
-    GetRooms,
-    ObjectDescriptionQuery,
-    ObjectIDQuery,
-    RoomByCoordinates,
-)
+from capstone_interfaces.srv import (GetRooms, ObjectDescriptionQuery,
+                                     ObjectIDQuery, RoomByCoordinates)
+from rclpy.node import Node
 
 
 class StateModule(Node):

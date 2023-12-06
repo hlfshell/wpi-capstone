@@ -1,11 +1,10 @@
-from capstone_interfaces.srv import ObjectIDQuery
-from capstone_interfaces.msg import StateObject
-from query_services import database_functions
-
 import sqlite3
 
-import rclpy
 import builtin_interfaces
+import rclpy
+from capstone_interfaces.msg import StateObject
+from capstone_interfaces.srv import ObjectIDQuery
+from query_services import database_functions
 from rclpy.node import Node
 
 

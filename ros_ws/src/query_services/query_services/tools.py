@@ -1,14 +1,15 @@
+import io
 import json
 import os
+import re
+from concurrent.futures import ThreadPoolExecutor
+
+import openai
+import requests
+from bs4 import BeautifulSoup
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from openai.embeddings_utils import cosine_similarity
-from concurrent.futures import ThreadPoolExecutor
-import requests
-from bs4 import BeautifulSoup
-import re
-import io
-import openai
 
 ### TOOLS FOR EMBEDDINGS FROM USER INPUT ###
 

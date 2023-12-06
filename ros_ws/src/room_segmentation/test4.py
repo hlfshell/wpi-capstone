@@ -1,7 +1,8 @@
-import cv2
 import math
-import numpy as np
 from random import randint
+
+import cv2
+import numpy as np
 
 img = cv2.imread("./willowgarage.jpeg", cv2.IMREAD_GRAYSCALE)
 # img = cv2.imread("./fp1.jpeg", cv2.IMREAD_GRAYSCALE)

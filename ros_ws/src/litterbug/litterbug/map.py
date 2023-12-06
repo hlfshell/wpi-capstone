@@ -7,9 +7,8 @@ import cv2
 import netpbmfile
 import numpy as np
 import yaml
-from nav_msgs.msg import OccupancyGrid
-
 from litterbug.brensenham import define_line
+from nav_msgs.msg import OccupancyGrid
 
 OCCUPIED = 1
 UNKNOWN = -1

@@ -1,8 +1,9 @@
-from litterbug.map import Map
-from litterbug.litterbug import Litterbug
-from litterbug.items import Item
-import rclpy
 from time import sleep
+
+import rclpy
+from litterbug.items import Item
+from litterbug.litterbug import Litterbug
+from litterbug.map import Map
 
 rclpy.init()
 

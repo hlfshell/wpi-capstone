@@ -1,9 +1,8 @@
-from capstone_interfaces.msg import StateObject, ObjectSpotted
+import builtin_interfaces
+import rclpy
+from capstone_interfaces.msg import ObjectSpotted, StateObject
 from capstone_interfaces.srv import AddObject
 from query_services import database_functions
-
-import rclpy
-import builtin_interfaces
 from rclpy.node import Node
 
 

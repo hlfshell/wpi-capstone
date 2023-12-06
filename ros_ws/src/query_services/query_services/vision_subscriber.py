@@ -1,20 +1,16 @@
 from __future__ import annotations
+
+from threading import Lock
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import rclpy
 from capstone_interfaces.msg import ObjectSpotted, StateObject
 from capstone_interfaces.srv import AddObject, ObjectDescriptionQuery
 from query_services import database_functions
-
-import numpy as np
-from sklearn.cluster import KMeans
-
-import rclpy
-from rclpy.node import Node
-
-from threading import Lock
-
-from typing import Dict, List, Tuple, Optional
-
 from query_services.database_functions import create_connection
-
+from rclpy.node import Node
+from sklearn.cluster import KMeans
 
 QUEUE_SIZE = 10
 THRESHOLD = 0.5

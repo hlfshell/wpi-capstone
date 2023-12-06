@@ -1,11 +1,10 @@
-import sqlite3
-from capstone_interfaces.msg import StateObject
-from rclpy.node import Node
-
-import datetime
 import calendar
+import datetime
+import sqlite3
 
+from capstone_interfaces.msg import StateObject
 from query_services.room import Room
+from rclpy.node import Node
 
 
 def create_connection(node: Node, db_file: str) -> sqlite3.Connection:

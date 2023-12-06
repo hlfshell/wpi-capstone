@@ -1,23 +1,16 @@
-import rclpy
-from rclpy.node import Node
-
-from capstone_interfaces.srv import GetRooms, RoomByCoordinates
-from capstone_interfaces.msg import Room as RoomMsg
-
-from query_services.room import Room
-from query_services.database_functions import (
-    create_connection,
-    create_room_table,
-)
-from query_services.segmentation import SegmentationMap
-
+from os import path
 from threading import Lock
-
 from typing import List, Optional, Tuple
 
+import rclpy
 from ament_index_python.packages import get_package_share_directory
-from os import path
-
+from capstone_interfaces.msg import Room as RoomMsg
+from capstone_interfaces.srv import GetRooms, RoomByCoordinates
+from query_services.database_functions import (create_connection,
+                                               create_room_table)
+from query_services.room import Room
+from query_services.segmentation import SegmentationMap
+from rclpy.node import Node
 
 maps_dir = path.join(get_package_share_directory("query_services"), "maps")
 

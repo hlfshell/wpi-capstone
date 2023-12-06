@@ -1,7 +1,7 @@
-from sys import argv
 import argparse
 import math
 from os import path
+from sys import argv
 from threading import Lock, Thread
 from time import sleep
 from typing import Callable, Dict, List, Tuple
@@ -11,12 +11,11 @@ import rclpy
 from ament_index_python.packages import get_package_share_directory
 from capstone_interfaces.msg import ObjectSpotted
 from capstone_interfaces.srv import GiveObject, PickUpObject
-from nav_msgs.msg import Odometry
-from rclpy.node import Node
-
 from litterbug.gazebo import Gazebo, ItemAlreadyExists
 from litterbug.items import Item
 from litterbug.map import Map
+from nav_msgs.msg import Odometry
+from rclpy.node import Node
 
 
 class Litterbug(Node):
