@@ -112,7 +112,7 @@ class MoveToObject(Action):
                 self._set_result((False, "item not known"))
                 return
         else:
-            self._set_result((False, "invalid object reference"))
+            self._set_result((False, "item not known"))
 
         with self.__object_id_lock:
             self.__object_id = object.id
@@ -334,7 +334,7 @@ class DoISee(Action):
         """
         Send a give object request
         """
-        if self.__vision.is_nearby_since(object_to_look_for, 0.5, 2.0):
+        if self.__vision.is_nearby_since(object_to_look_for, 1.0, 2.0):
             self._set_result(True)
         else:
             self._set_result(False)

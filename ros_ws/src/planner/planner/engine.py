@@ -69,6 +69,9 @@ class RobotEngine(Node):
     def run(self, code: str):
         self.__action_planner.execute(code)
 
+    def cancel(self):
+        self.__action_planner.cancel()
+
     def spin(self):
         self.__executor.add_node(self)
         self.__executor.add_node(self.__interaction_module)
