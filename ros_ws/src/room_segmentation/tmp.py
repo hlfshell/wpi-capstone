@@ -319,3 +319,6 @@ cv2.imshow("Final", final)
 # cv2.imshow("Thresholded Markers", thresholded_markers.astype("uint8"))
 cv2.imshow("Thresholded", thresholded)
 cv2.waitKey()
+print(np.unique(thresholded_markers, return_counts=True))
+
+np.save("house.segmentation", thresholded_markers, allow_pickle=False)
