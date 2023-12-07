@@ -1,12 +1,10 @@
 import os
 
 from ament_index_python.packages import get_package_share_directory
-from launch_ros.actions import Node
-
 from launch import LaunchDescription
 from launch.actions import GroupAction, IncludeLaunchDescription
-from launch.event_handlers import OnExecutionComplete
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -74,8 +72,22 @@ def generate_launch_description():
         parameters=[],
     )
 
+    # Create a node for running our explorer application
+    map_saver_server = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [
+                get_package_share_directory("nav2_map_server"),
+                "/launch",
+                "/map_saver_server.launch.py",
+            ]
+        ),
+        launch_arguments={
+            "use_sim_time": "true",
+        }.items(),
+    )
+
     sim_group = GroupAction(actions=[gazebo])
-    nav_group = GroupAction(actions=[nav2, slam])
+    nav_group = GroupAction(actions=[nav2, slam, map_saver_server])
     ui_group = GroupAction(actions=[rviz2])
     capstone_group = GroupAction(actions=[explorer])
 
