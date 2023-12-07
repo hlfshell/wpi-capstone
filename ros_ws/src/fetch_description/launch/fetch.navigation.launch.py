@@ -9,7 +9,7 @@ from launch_ros.actions import Node
 import launch_ros
 import os
 import xacro
-# TODO get nav working with fetch and fix camera
+# TODO get nav working with fetch and fix costmap
 def generate_launch_description():
     pkg_share = launch_ros.substitutions.FindPackageShare(package='fetch_description').find('fetch_description')
     default_model_path = os.path.join(pkg_share, 'robots/fetch.urdf')
@@ -167,11 +167,10 @@ def generate_launch_description():
         joint_state_publisher_node,
         robot_state_publisher,
         house_spawner,
-        slam,
-        #nav2,
+        nav2,
+        #slam,
         spawn_entity,
         robot_localization_node,
-        rviz_node,
-        teleop
+        rviz_node
 
     ])

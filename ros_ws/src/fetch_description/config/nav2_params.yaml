@@ -6,7 +6,7 @@ amcl:
     alpha3: 0.2
     alpha4: 0.2
     alpha5: 0.2
-    base_frame_id: "base_footprint"
+    base_frame_id: "base_link"
     beam_skip_distance: 0.5
     beam_skip_error_threshold: 0.9
     beam_skip_threshold: 0.3
@@ -176,10 +176,10 @@ local_costmap:
       robot_base_frame: base_link
       use_sim_time: True
       rolling_window: True
-      width: 20
-      height: 20
+      width: 10
+      height: 10
       resolution: 0.05
-      robot_radius: 0.5
+      robot_radius: 0.25
       plugins: ["obstacle_layer", "voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -234,9 +234,9 @@ global_costmap:
       robot_base_frame: base_link
       use_sim_time: True
       rolling_window: True
-      width: 20
-      height: 20
-      robot_radius: 0.5
+      width: 10
+      height: 10
+      robot_radius: .25
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "voxel_layer", "inflation_layer"]
