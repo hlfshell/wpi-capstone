@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import ast
 from abc import ABC, abstractmethod
+from functools import partial
 from threading import Lock
 from typing import Any, Callable, Dict, Optional
-
-from functools import partial
 
 # Status code constants for actions
 READY = 0
@@ -223,12 +222,13 @@ class ActionPlanner:
     A single planner can work with multiple generated pythonic plans.
     """
 
-    def __init__(self, actions: Dict[str, Action]):
+    def __init__(self, actions: Dict[str, Action], functions: Dict[str, Callable]):
         """
         Creates a new action plan instance with the provided set of
         actions, instantiating to a READY status.
         """
         self.actions = actions
+        self.functions = functions
 
         self.__action_lock = Lock()
         self.__current_action: Optional[Action] = None
@@ -290,6 +290,8 @@ class ActionPlanner:
             # Create a series of lambdas that create new Actions
             # when a given action is generated
             globals = self.__generate_lambdas()
+            # Expand our wrapped actions with the provided functions
+            globals.update(self.functions)
             locals = {}
             exec(code, globals, locals)
 

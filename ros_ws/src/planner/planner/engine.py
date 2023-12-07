@@ -1,25 +1,26 @@
+import io
+from contextlib import redirect_stdout
+from functools import partial
+from io import StringIO
+from threading import Lock, Thread
+from typing import Callable, Dict, Optional, Union
+
 import rclpy
+from capstone_interfaces.srv import GiveObject as GiveObjectMsg
+from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
 from rclpy.node import Node
-from typing import Dict
-
-from threading import Thread
-
-from capstone_interfaces.srv import (
-    PickUpObject as PickUpObjectMsg,
-    GiveObject as GiveObjectMsg,
-)
 
 from planner.action import Action, ActionPlanner
 from planner.interaction import InteractionModule
 from planner.navigation import NavigationModule
 from planner.robot_actions import (
+    DoISee,
     GiveObject,
+    LookAround,
+    MoveToHuman,
     MoveToObject,
     MoveToRoom,
-    MoveToHuman,
     PickUpObject,
-    DoISee,
-    LookAround,
 )
 from planner.state import StateModule
 from planner.vision import VisionModule
@@ -64,10 +65,35 @@ class RobotEngine(Node):
             ),
         }
 
-        self.__action_planner = ActionPlanner(actions)
+        functions: Dict[str, Callable] = {
+            "complete": partial(self.__mark_result, True),
+            "fail": partial(self.__mark_result, False),
+        }
 
-    def run(self, code: str):
-        self.__action_planner.execute(code)
+        self.__action_planner = ActionPlanner(actions, functions)
+
+        self.__output_callback: Callable = None
+
+        self.__result_lock = Lock()
+        self.__result: Optional[bool] = None
+
+    def run(self, code: str) -> Union[None, bool]:
+        # Reset our result
+        with self.__result_lock:
+            self.__result = None
+
+        out = StdOutRedirect(self.__broadcast)
+        with redirect_stdout(out):
+            self.__action_planner.execute(code)
+
+        # Get the result if possible
+        with self.__result_lock:
+            result = self.__result
+
+        return result
+
+    def set_output_callback(self, callback: Callable):
+        self.__output_callback = callback
 
     def cancel(self):
         self.__action_planner.cancel()
@@ -79,3 +105,24 @@ class RobotEngine(Node):
         self.__executor.add_node(self.__vision_module)
         self.__executor.add_node(self.__state_module)
         Thread(target=self.__executor.spin, daemon=True).start()
+
+    def __mark_result(self, result: bool):
+        with self.__result_lock:
+            self.__result = result
+
+    def __broadcast(self, msg):
+        if self.__output_callback is not None:
+            self.__output_callback(msg)
+
+
+class StdOutRedirect(io.TextIOBase):
+    """
+    StdOutRedirect will send all writes to stdout
+    to the provided callback.
+    """
+
+    def __init__(self, target: Callable):
+        self.target = target
+
+    def write(self, s: str):
+        self.target(s)

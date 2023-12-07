@@ -1,17 +1,14 @@
+from threading import Lock
+from typing import Dict, List, Optional, Union
+from uuid import uuid4
+
 import rclpy
+from capstone_interfaces.msg import AIPrintStatement, Objective, ObjectiveStatus, Plan
 from rclpy.node import Node
 
 from planner.ai import AI
 from planner.engine import RobotEngine
-from planner.llm import LLM
-
-from capstone_interfaces.msg import Objective, Plan, ObjectiveStatus
-
-from threading import Lock
-from typing import Optional, Dict, List
-
-from uuid import uuid4
-
+from planner.llm import OpenAI
 
 # Statuses
 """
@@ -33,6 +30,10 @@ Additional states can be:
     of the system.
 2. ERROR - the plan has encountered an error and cannot be
     completed.
+3. FAILED - the plan completed, but was unable to succeed at
+    what it set out to do
+4. REPLANNING - the plan has failed, and the AI is requesting
+    a replan
 
 """
 CREATED = "CREATED"
@@ -41,7 +42,9 @@ INIT = "INITIALIZING"
 RUNNING = "RUNNING"
 COMPLETED = "COMPLETED"
 CANCELLED = "CANCELLED"
+FAILED = "FAILED"
 ERROR = "ERROR"
+REPLAN = "REPLAN"
 
 
 class Service(Node):
@@ -56,10 +59,14 @@ class Service(Node):
         super().__init__("planner")
         self.__ai = ai
         self.__engine = engine
+        self.__engine.set_output_callback(self.__broadcast_output)
 
-        self.__plan_publisher = self.create_publisher(Plan, "plan", 10)
+        self.__plan_publisher = self.create_publisher(Plan, "objective/plan", 10)
         self.__objective_status_publisher = self.create_publisher(
-            Objective, "objective/status", 10
+            ObjectiveStatus, "objective/status", 10
+        )
+        self.__ai_print_publisher = self.create_publisher(
+            AIPrintStatement, "objective/ai/out", 10
         )
 
         # State memory
@@ -100,7 +107,10 @@ class Service(Node):
         with self.__lock:
             self.__objective_id = msg.id
             self.__objective = msg.objective
-            self.__history[self.__objective_id] = [status]
+            if self.__objective_id not in self.__history:
+                self.__history[self.__objective_id] = [status]
+            else:
+                self.__history[self.__objective_id].append(status)
             self.__plan = ""
             self.__plan_id = ""
             self.__status = status
@@ -138,8 +148,14 @@ class Service(Node):
         Log the objective status to the history
         """
         self.get_logger().info(
-            f"objective {status.plan_id} status: {status.status} - {status.message}"
+            f"objective {status.id} status: {status.status} - {status.message}"
         )
+
+    def __broadcast_output(self, msg: str):
+        """
+        Broadcast an AI print statement
+        """
+        self.__ai_print_publisher.publish(AIPrintStatement(out=msg))
 
     def __process_plan(self):
         """
@@ -148,7 +164,9 @@ class Service(Node):
         a plan and passing it to the robot engine.
         """
         with self.__lock:
-            if self.__objective_id == "" or self.__status.status != CREATED:
+            if self.__objective_id == "" or (
+                self.__status.status != CREATED and self.__status.status != REPLAN
+            ):
                 return
 
             status = ObjectiveStatus(
@@ -232,15 +250,75 @@ class Service(Node):
             )
             self.__history[self.__objective_id].append(status)
             self.__status = status
+            # Write the plan to a file
+            with open("/home/keith/projects/wpi-capstone/ros_ws/plan.out", "w") as f:
+                f.write(plan)
 
         self.__log_objective_status(status)
         self.__objective_status_publisher.publish(status)
 
         try:
-            self.__engine.run(plan)
+            result: Union[None, bool] = self.__engine.run(plan)
+            # Three possible results - our plan was successful (True),
+            # our plan failed (False), or our plan failed for some
+            # reason.
+            if result is None:
+                # Check to see if we were cancelled prior to declaring
+                # an issue
+                with self.__lock:
+                    if self.__status.status == CANCELLED:
+                        # For now, just abort
+                        return
+            elif result:
+                # Success!
+                with self.__lock:
+                    status = ObjectiveStatus(
+                        status=COMPLETED,
+                        id=self.__objective_id,
+                        message="plan has completed executing",
+                    )
+                    self.__history[self.__objective_id].append(status)
+                    self.__status = status
+                    self.__objective = ""
+                    self.__objective_id = ""
+                    self.__plan = ""
+                    self.__plan_id = ""
+                self.__log_objective_status(status)
+                self.__objective_status_publisher.publish(status)
+            else:
+                # Check to see if we were cancelled prior to declaring
+                # an issue
+                with self.__lock:
+                    if self.__status.status == CANCELLED:
+                        # For now, just abort
+                        return
+                # If we reached this part, we have failed and must
+                # attempt to replan
+                with self.__lock:
+                    status = ObjectiveStatus(
+                        status=FAILED,
+                        id=self.__objective_id,
+                        message="plan failed to execute",
+                    )
+                    self.__history[self.__objective_id].append(status)
+                    self.__status = status
+                    self.__plan = ""
+                    self.__plan_id = ""
+                self.__log_objective_status(status)
+                self.__objective_status_publisher.publish(status)
+                with self.__lock:
+                    status = ObjectiveStatus(
+                        status=REPLAN,
+                        id=self.__objective_id,
+                        message="requesting replan",
+                    )
+                    self.__status = status
+                    self.__history[self.__objective_id].append(status)
+                self.__log_objective_status(status)
+                self.__objective_status_publisher.publish(status)
 
         except Exception as e:
-            self.get_logger().error(e)
+            self.get_logger().error(str(e))
             with self.__lock:
                 status = ObjectiveStatus(
                     status=ERROR,
@@ -257,31 +335,16 @@ class Service(Node):
             self.__objective_status_publisher.publish(status)
             return
 
-        with self.__lock:
-            status = ObjectiveStatus(
-                status=COMPLETED,
-                id=self.__objective_id,
-                message="plan has completed executing",
-            )
-            self.__history[self.__objective_id].append(status)
-            self.__status = status
-            self.__objective = ""
-            self.__objective_id = ""
-            self.__plan = ""
-            self.__plan_id = ""
-        self.__log_objective_status(status)
-        self.__objective_status_publisher.publish(status)
-
 
 def main(args=None):
     rclpy.init(args=args)
 
-    # llm = LLM(model="gpt-4-1106-preview")
-    llm = LLM()
+    # llm = OpenAI(model="gpt-4-1106-preview")
+    llm = OpenAI()
     ai = AI(llm)
     engine = RobotEngine()
 
-    ai.spin()
+    # ai.spin()
     engine.spin()
 
     service = Service(ai, engine)
