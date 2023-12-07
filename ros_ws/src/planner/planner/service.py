@@ -251,7 +251,7 @@ class Service(Node):
             self.__history[self.__objective_id].append(status)
             self.__status = status
             # Write the plan to a file
-            with open("/home/keith/projects/wpi-capstone/ros_ws/plan.out", "w") as f:
+            with open("./plan.out", "w") as f:
                 f.write(plan)
 
         self.__log_objective_status(status)
