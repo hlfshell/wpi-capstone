@@ -43,6 +43,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Plan.msg"
   "msg/Objective.msg"
   "msg/ObjectiveStatus.msg"
+  "msg/AIPrintStatement.msg"
   DEPENDENCIES builtin_interfaces
 )
 
