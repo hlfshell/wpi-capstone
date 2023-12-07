@@ -83,15 +83,19 @@ class AI(Node):
         instructions_prompt = "Remember, do not reply with anything but python code to accomplish your goal."
         objective_str = f"Your objective is to: {objective}"
 
-        output = self.__llm.prompt(
-            [
-                self.__planning_prompt,
-                self.__functions_prompt,
-                state_prompt,
-                instructions_prompt,
-                objective_str,
-            ]
-        )
+        prompts = [
+            self.__planning_prompt,
+            self.__functions_prompt,
+            state_prompt,
+            instructions_prompt,
+            objective_str,
+        ]
+
+        # Write out out the planning prompt to a file
+        with open("./planning.prompt", "w") as f:
+            f.write("\n".join(prompts))
+
+        output = self.__llm.prompt()
 
         try:
             return self.__llm.clean_response(output)
@@ -120,6 +124,10 @@ class AI(Node):
             state_prompt,
             objective_str,
         ]
+
+        # Write out out the planning prompt to a file
+        with open("./planning.prompt", "w") as f:
+            f.write("\n".join(prompts))
 
         # Create multiple simultaneous threads at once to
         # generate plans
@@ -217,6 +225,10 @@ class AI(Node):
         prompts.append(
             "Rank the prompts according to how well they accomplish the objective and in the format requested"
         )
+
+        # Write out out the rating prompt to a file
+        with open("./rating.prompt", "w") as f:
+            f.write("\n".join(prompts))
 
         futures: List[Future] = []
         with ThreadPoolExecutor(max_workers=raters) as executor:
