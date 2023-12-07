@@ -9,18 +9,11 @@ from launch_ros.actions import Node
 
 # This launch file is used to launch the gazebo house world, yolo, tb3, nav2, slam_toolbox, and rviz2
 def generate_launch_description():
-    
     launch_file_dir = os.path.join(
         get_package_share_directory("turtlebot3_gazebo"), "launch"
     )
-<<<<<<<< HEAD:ros_ws/src/aws-robomaker-small-house-world/launch/house.launch.py
-
-    pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
-
-========
     
     # House world packages
->>>>>>>> main:ros_ws/src/yolobot_gazebo/launch/house.yolo.launch.py
     house_world_path = os.path.join(
         get_package_share_directory("aws-robomaker-small-house-world"),
         "worlds",
@@ -30,20 +23,10 @@ def generate_launch_description():
         get_package_share_directory("aws-robomaker-small-house-world"),
         "maps",
         "house_1.yaml",
-<<<<<<<< HEAD:ros_ws/src/aws-robomaker-small-house-world/launch/house.launch.py
-    )
-
-    params_file = os.path.join(get_package_share_directory("aws-robomaker-small-house-world"), 
-                               "param", 
-                               "tb3_nav_params.yaml"
-========
->>>>>>>> main:ros_ws/src/yolobot_gazebo/launch/house.yolo.launch.py
     )
 
     config_dir = os.path.join(get_package_share_directory("explorer"), "config")
     rviz_config = os.path.join(config_dir, "nav.rviz")
-<<<<<<<< HEAD:ros_ws/src/aws-robomaker-small-house-world/launch/house.launch.py
-========
     pkg_gazebo_ros = get_package_share_directory("gazebo_ros")
     params_file = os.path.join(get_package_share_directory("aws-robomaker-small-house-world"), 
                                "param", 
@@ -52,7 +35,6 @@ def generate_launch_description():
 
     # Yolov8 packages
     pkg_yolobot_recognition = get_package_share_directory('yolobot_recognition')
->>>>>>>> main:ros_ws/src/yolobot_gazebo/launch/house.yolo.launch.py
 
     use_sim_time = LaunchConfiguration("use_sim_time", default="true")
     x_pose = LaunchConfiguration("x_pose", default="0.0")
@@ -85,8 +67,6 @@ def generate_launch_description():
         launch_arguments={"x_pose": x_pose, "y_pose": y_pose}.items(),
     )
 
-<<<<<<<< HEAD:ros_ws/src/aws-robomaker-small-house-world/launch/house.launch.py
-========
     # Yolov8 launch
     spawn_yolo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -95,7 +75,6 @@ def generate_launch_description():
     )
 
     # Launch async slam toolbox
->>>>>>>> main:ros_ws/src/yolobot_gazebo/launch/house.yolo.launch.py
     slam = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -120,7 +99,7 @@ def generate_launch_description():
         ),
         launch_arguments={"map": map_file, "params_file": params_file}.items(),
     )
-    
+
     rviz = Node(
         package="rviz2",
         output="screen",
