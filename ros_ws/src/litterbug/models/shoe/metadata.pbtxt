@@ -1,0 +1,39 @@
+model {
+  file: "model.sdf"
+}
+name: "Adrenaline_GTS_13_Color_DrkDenimWhtBachlorBttnSlvr_Size_50_yfK40TNjq0V"
+description: "Adrenaline GTS 13, Color: DrkDenim/Wht/BachlorBttn/Slvr, Size: 5.0\nLucky 13 is our best Adrenaline GTS yet. We paid special attention to the underfoot flex by adding Omega Flex Grooves and continuing Omni Grooves in the forefoot, allowing the outsole to bend and shape naturally. Continuing with the tradition of a tailored fit, stretch eyelets lock into the medial side to capture the foot better and technologies like Flextra and anatomical Brooks DNA deliver customized stability and cushion. We\'re not the only Adrenaline junkies out there - Runner\'s World named the GTS 13 Editor\'s Choice in the Fall Shoe Guide in their December 2012 issue. They call the GTS 13 a \"classic stability shoe\", and quoted one wear tester as saying, \"it\'s soft enough that you can feel the road surface below, but there\'s enough padding that you don\'t feel as though you\'re running on concrete blocks.\" No luck here, just purely good design. > See the Men\'s Adrenaline GTS 13Category: Support Weight: 11.3 oz Platform: Universal Construction: Combination Midsole &bull; Anatomical Brooks DNA - Working with BioMoGo, Brooks DNA responds to your every step, dispersing impact and providing ideal comfort and protection as the pace and surface change. &bull; Full-length BioMoGo - Our midsoles are now more environmentally friendly by adding a non-toxic, natural additive to the MoGo compound that encourages anaerobic microbes to munch away once it hits an enclosed, active landfill. &bull; Progressive Diagonal Rollbar (PDRB) - Our tri-density PDRB midsoles are biomechanically engineered to allow for progressive pronation control and to create smoother transitions from the midstance phase into the propulsion phase. &bull; Omega Flex Grooves - This innovation enhances the flexibility of the midsole and provides an effortless forefoot ride while still offering great cushioning and midsole integrity. The unique shape of the groove allows it to flex dynamically without compromising cushioning. When at rest, it supports the shoe; when it\'s flexing, the groove opens up to..."
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Brooks Running"
+}
+annotations {
+  key: "gtin"
+  value: "00883439644874"
+}
+annotations {
+  key: "mpn"
+  value: "1201231b444.050"
+}
+annotations {
+  key: "sku"
+  value: "1201231B444.050"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Shoe"
+}

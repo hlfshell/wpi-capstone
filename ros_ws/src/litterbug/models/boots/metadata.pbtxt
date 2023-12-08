@@ -1,0 +1,39 @@
+model {
+  file: "model.sdf"
+}
+name: "Timberland_Mens_Earthkeepers_Stormbuck_Chukka"
+description: "Timberland Men\'s Earthkeepers Stormbuck Chukka\nCheck out our Men\'s Earthkeepers Stormbuck Chukka. Complicated isn\'t always better. Simple lines and eco-conscious materials speak for themselves in our Earthkeepers Stormbuck Chukka, which features premium, water-resistant suede uppers and our exclusive anti-fatigue technology built right into the footbed for all-day style and comfort."
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Timberland Pro"
+}
+annotations {
+  key: "gtin"
+  value: "887235192539"
+}
+annotations {
+  key: "mpn"
+  value: "5834r"
+}
+annotations {
+  key: "sku"
+  value: "12757797"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Shoe"
+}

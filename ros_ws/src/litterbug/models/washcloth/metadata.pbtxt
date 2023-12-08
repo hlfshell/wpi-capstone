@@ -1,0 +1,34 @@
+model {
+  file: "model.sdf"
+}
+name: "Home_Fashions_Washcloth_Olive_Green"
+description: "Home Fashions Washcloth, Olive Green"
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Home Fashions"
+}
+annotations {
+  key: "gtin"
+  value: "00761450086234"
+}
+annotations {
+  key: "sku"
+  value: "00761450086234"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+}

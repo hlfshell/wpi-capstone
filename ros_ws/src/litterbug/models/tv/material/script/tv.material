@@ -1,0 +1,13 @@
+material Custom/tv
+{
+	technique
+	{
+		pass
+		{
+			texture_unit
+			{
+				texture tv.png
+			}
+		}
+	}
+}
