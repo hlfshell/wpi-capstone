@@ -23,22 +23,27 @@ class Item:
         model: str,
         origin: Tuple[float, float, float],
         orientation: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
+        spawn: bool = False,
     ):
         self.name = name
         self.label = label
         self.model = model
         self.origin = origin
         self.orientation = orientation
+        self.spawn = spawn
 
     def __str__(self):
         return f"{self.name}: {self.label} @ {self.origin}"
 
     @staticmethod
-    def from_csv(filepath: str) -> List[Item]:
+    def from_csv(
+        filepath: str,
+    ) -> List[Item]:
         items = []
         with open(filepath) as f:
             for line in f.readlines():
-                name, label, model, x, y, z, qx, qy, qz, qw = line.split(",")
+                name, label, model, x, y, z, qx, qy, qz, qw, spawn = line.split(",")
+
                 items.append(
                     Item(
                         name=name,
@@ -46,6 +51,7 @@ class Item:
                         model=model,
                         origin=(float(x), float(y), float(z)),
                         orientation=(float(qx), float(qy), float(qz), float(qw)),
+                        spawn=spawn.strip() == "TRUE",
                     )
                 )
         return items
@@ -65,5 +71,6 @@ class Item:
                     + f"{item.orientation[1]},"
                     + f"{item.orientation[2]},"
                     + f"{item.orientation[3]},"
+                    + f"{'TRUE' if item.spawn else 'FALSE'}\n"
                     + "\n"
                 )

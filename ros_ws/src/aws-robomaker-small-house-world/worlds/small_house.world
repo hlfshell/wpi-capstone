@@ -732,5 +732,28 @@
       <cast_shadows>0</cast_shadows>
       <direction>0 0 -1</direction>
     </light>
+
+    <!-- Plugins -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+        <ros>
+        <namespace>/gazebo</namespace>
+        </ros>
+        <update_rate>1.0</update_rate>
+    </plugin>
+
+    <plugin name="gazebo_ros_factory" filename="libgazebo_ros_factory.so">
+        <ros>
+        <namespace>/gazebo</namespace>
+        </ros>
+        <update_rate>1.0</update_rate>
+    </plugin>
+
+    <plugin name="gazebo_ros_properties" filename="libgazebo_ros_properties.so">
+        <ros>
+        <namespace>/gazebo</namespace>
+        </ros>
+        <update_rate>1.0</update_rate>
+    </plugin>
+
   </world>
 </sdf>

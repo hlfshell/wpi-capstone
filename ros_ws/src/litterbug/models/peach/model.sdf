@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+<!--
+This SDF file was automatically generated using a template modified 
+and authored by Adwait Naik. The moment of interia is not supposed to be changed.
+-->
+    <model name="peach">
+      <pose>1.0 2.0 3.0 0 0 0</pose> 
+      <link name="link">
+        <inertial>
+          <inertia>
+           <ixx>4.5876541133456013e-08</ixx>
+           <ixy>-6.824671211078382e-24</ixy>
+           <ixz>4.976057697768975e-24</ixz>
+           <iyy>4.4440446186663605e-08</iyy>
+           <iyz>-3.0375618849172078e-24</iyz>
+           <izz>4.0982746223781025e-08</izz>
+          </inertia>
+          <mass>0.00011721380481271601</mass>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+          	<mesh>
+             <uri>textured.dae</uri>
+            </mesh>
+          </geometry>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+          	<mesh>
+            <uri>textured.dae</uri>
+	        </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+</sdf>

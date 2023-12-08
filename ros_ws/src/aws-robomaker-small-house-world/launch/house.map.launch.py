@@ -9,7 +9,6 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    
     launch_file_dir = os.path.join(
         get_package_share_directory("turtlebot3_gazebo"), "launch"
     )
@@ -19,7 +18,8 @@ def generate_launch_description():
     house_world_path = os.path.join(
         get_package_share_directory("aws-robomaker-small-house-world"),
         "worlds",
-        "small_house.world",
+        # "small_house.world",
+        "house.world",
     )
     map_file = os.path.join(
         get_package_share_directory("aws-robomaker-small-house-world"),
@@ -27,9 +27,10 @@ def generate_launch_description():
         "house_1.yaml",
     )
 
-    params_file = os.path.join(get_package_share_directory("aws-robomaker-small-house-world"), 
-                               "param", 
-                               "tb3_nav_params.yaml"
+    params_file = os.path.join(
+        get_package_share_directory("aws-robomaker-small-house-world"),
+        "param",
+        "tb3_nav_params.yaml",
     )
 
     config_dir = os.path.join(get_package_share_directory("explorer"), "config")
@@ -76,7 +77,7 @@ def generate_launch_description():
         ),
         launch_arguments={"map": map_file, "params_file": params_file}.items(),
     )
-    
+
     rviz = Node(
         package="rviz2",
         output="screen",
@@ -93,6 +94,6 @@ def generate_launch_description():
     ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_turtlebot_cmd)
     ld.add_action(nav2)
-    ld.add_action(rviz) 
+    ld.add_action(rviz)
 
     return ld

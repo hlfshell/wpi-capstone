@@ -144,8 +144,14 @@ class Litterbug(Node):
         populate adds all items to the simulation, ignoring
         errors where they exist already.
         """
+        self.get_logger().info("Populating world")
         with self.__world_items_lock:
             for item in self.__world_items:
+                self.get_logger().info(
+                    f"Loading {item.name} - {item.label} - {item.spawn}"
+                )
+                if not item.spawn:
+                    continue
                 if item.label in HUMAN_LABELS:
                     with self.__human_position_lock:
                         self.__human_position = item.origin
