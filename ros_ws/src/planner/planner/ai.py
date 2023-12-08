@@ -121,7 +121,6 @@ class AI(Node):
             self.__functions_prompt,
             state_prompt,
             instructions_prompt,
-            state_prompt,
             objective_str,
         ]
 

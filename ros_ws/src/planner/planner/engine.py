@@ -1,18 +1,17 @@
 import io
 from contextlib import redirect_stdout
 from functools import partial
-from io import StringIO
 from threading import Lock, Thread
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import rclpy
-from capstone_interfaces.srv import GiveObject as GiveObjectMsg
-from capstone_interfaces.srv import PickUpObject as PickUpObjectMsg
+from litterbug.items import Item
 from rclpy.node import Node
 
 from planner.action import Action, ActionPlanner
 from planner.interaction import InteractionModule
 from planner.navigation import NavigationModule
+from planner.omniscience import OmniscienceModule
 from planner.robot_actions import (
     DoISee,
     GiveObject,
@@ -35,12 +34,13 @@ class RobotEngine(Node):
     interruption of actions via new information.
     """
 
-    def __init__(self):
+    def __init__(self, items: List[Item]):
         super().__init__("robot_engine")
 
         self.__executor = rclpy.executors.MultiThreadedExecutor()
 
         # Modules
+        self.__omniscience_module = OmniscienceModule(items)
         self.__interaction_module = InteractionModule()
         self.__navigation_module = NavigationModule()
         self.__vision_module = VisionModule()
@@ -52,6 +52,7 @@ class RobotEngine(Node):
                 self.__navigation_module,
                 self.__vision_module,
                 self.__state_module,
+                self.__omniscience_module,
             ),
             "move_to_room": MoveToRoom(self.__navigation_module, self.__state_module),
             "move_to_human": MoveToHuman(self.__navigation_module, self.__state_module),
@@ -59,9 +60,11 @@ class RobotEngine(Node):
                 self.__interaction_module, self.__state_module
             ),
             "give_object": GiveObject(self.__interaction_module, self.__state_module),
-            "do_i_see": DoISee(self.__vision_module),
+            "do_i_see": DoISee(self.__vision_module, self.__omniscience_module),
             "look_around_for": LookAround(
-                self.__navigation_module, self.__vision_module
+                self.__navigation_module,
+                self.__vision_module,
+                self.__omniscience_module,
             ),
         }
 
@@ -104,6 +107,8 @@ class RobotEngine(Node):
         self.__executor.add_node(self.__navigation_module)
         self.__executor.add_node(self.__vision_module)
         self.__executor.add_node(self.__state_module)
+        # self.__executor.add_node(self.__omniscience_module)
+        self.__omniscience_module.spin()
         Thread(target=self.__executor.spin, daemon=True).start()
 
     def __mark_result(self, result: bool):

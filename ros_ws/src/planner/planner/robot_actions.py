@@ -16,6 +16,7 @@ from capstone_interfaces.msg import StateObject, Room
 
 from threading import Lock
 
+from planner.omniscience import OmniscienceModule
 from planner.interaction import InteractionModule
 from planner.navigation import NavigationModule
 from planner.vision import VisionModule
@@ -66,7 +67,11 @@ class MoveToObject(Action):
     """
 
     def __init__(
-        self, navigator: NavigationModule, vision: VisionModule, state: StateModule
+        self,
+        navigator: NavigationModule,
+        vision: VisionModule,
+        state: StateModule,
+        omniscience: OmniscienceModule,
     ):
         """
         Create a new MoveToObject action.
@@ -80,6 +85,7 @@ class MoveToObject(Action):
         self.__navigator = navigator
         self.__vision = vision
         self.__state = state
+        self.__omniscience = omniscience
 
         self.__object_id_lock = Lock()
         self.__object_id: str = ""
@@ -137,11 +143,14 @@ class MoveToObject(Action):
 
         # If we see the object within half a meter in the past
         # five seconds, we succeed
-        if self.__vision.is_nearby_since(
-            object_id,
-            0.5,
-            5.0,
-        ):
+        # Check to see if the object is nearby via omniscience
+        # for ease of simulation due to issues w/ vision
+        if self.__omniscience.am_i_near(object_id, 1.0):
+            # if self.__vision.is_nearby_since(
+            #     object_id,
+            #     2.0,
+            #     5.0,
+            # ):
             return self._set_result((True, ""))
         else:
             return self._set_result((False, "object not seen"))
@@ -154,6 +163,7 @@ class MoveToObject(Action):
             self.__navigator,
             self.__vision,
             self.__state,
+            self.__omniscience,
         )
 
 
@@ -326,15 +336,22 @@ class DoISee(Action):
     where message is set for the "why" in the event of not seeing it.
     """
 
-    def __init__(self, vision: VisionModule):
+    def __init__(self, vision: VisionModule, omnisicence: OmniscienceModule):
         super().__init__("DoISeeObject")
         self.__vision = vision
+        self.__omniscience = omnisicence
 
     def _execute(self, object_to_look_for: Union[str, int]):
         """
         Send a give object request
         """
-        if self.__vision.is_nearby_since(object_to_look_for, 1.0, 2.0):
+        # If we are within a set distance assume we see it due to issues
+        # with close range vision on our simulator
+        if self.__omniscience.am_i_near(object_to_look_for, 1.0):
+            self._set_result(True)
+            return
+
+        if self.__vision.is_nearby_since(object_to_look_for, 8.0, 5.0):
             self._set_result(True)
         else:
             self._set_result(False)
@@ -346,7 +363,7 @@ class DoISee(Action):
         pass
 
     def clone(self):
-        return DoISee(self.__vision)
+        return DoISee(self.__vision, self.__omniscience)
 
 
 class LookAround(Action):
@@ -354,19 +371,45 @@ class LookAround(Action):
     LookAround will spin the robot around in place
     """
 
-    def __init__(self, navigation: NavigationModule, vision: VisionModule):
+    def __init__(
+        self,
+        navigation: NavigationModule,
+        vision: VisionModule,
+        omnisciense: OmniscienceModule,
+    ):
         super().__init__("LookAround")
         self.__vision = vision
         self.__navigation = navigation
+        self.__omniscience = omnisciense
         self.__cancel_flag = False
         self.__cancel_lock = Lock()
 
-    def _execute(self, object_to_look_for: Union[str, int]):
+    def _execute(self, object_to_look_for: Union[str, int, List[str], List[int]]):
         """
         Send a give object request
         """
+        vision_distance = 8.0
+        vision_since = 5.0
         # Check before spinning
-        self.__vision.is_nearby_since(object_to_look_for, 5.0, 5.0)
+        if isinstance(object_to_look_for, list):
+            for object in object_to_look_for:
+                # If we are next to an item we "auto-see" it
+                if self.__omniscience.am_i_near(object, 1.0):
+                    self._set_result(True)
+                    return
+                if self.__vision.is_nearby_since(object, vision_distance, vision_since):
+                    self._set_result(True)
+                    return
+        else:
+            # If we are next to an item we "auto-see" it
+            if self.__omniscience.am_i_near(object_to_look_for, 1.0):
+                self._set_result(True)
+                return
+            if self.__vision.is_nearby_since(
+                object_to_look_for, vision_distance, vision_since
+            ):
+                self._set_result(True)
+                return
 
         for spin in range(4):
             # We want to spin pi / 2, but we add a bit as a buffer
@@ -382,9 +425,25 @@ class LookAround(Action):
                     self._set_result(False)
                     return
 
-            if self.__vision.is_nearby_since(object_to_look_for, 5.0, 5.0):
-                self._set_result(True)
-                return
+            if isinstance(object_to_look_for, list):
+                for object in object_to_look_for:
+                    if self.__omniscience.am_i_near(object, 1.0):
+                        self._set_result(True)
+                        return
+                    if self.__vision.is_nearby_since(
+                        object, vision_distance, vision_since
+                    ):
+                        self._set_result(True)
+                        return
+            else:
+                if self.__omniscience.am_i_near(object_to_look_for, 1.0):
+                    self._set_result(True)
+                    return
+                if self.__vision.is_nearby_since(
+                    object_to_look_for, vision_distance, vision_since
+                ):
+                    self._set_result(True)
+                    return
 
         # If we've made it here, we didn't see it
         self._set_result(False)
@@ -398,4 +457,4 @@ class LookAround(Action):
         self.__navigation.cancel()
 
     def clone(self):
-        return LookAround(self.__navigation, self.__vision)
+        return LookAround(self.__navigation, self.__vision, self.__omniscience)

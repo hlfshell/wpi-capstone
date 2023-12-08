@@ -24,7 +24,7 @@ class NavigationModule(Node):
     def __init__(self):
         super().__init__("navigation_module")
 
-        self.__distance_for_success = 0.5
+        self.__distance_for_success = 1.0
         self.__acceptable_angle_difference = pi / 8
 
         self.__navigate = ActionClient(self, NavigateToPose, "/navigate_to_pose")

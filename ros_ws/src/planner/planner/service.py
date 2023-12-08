@@ -1,11 +1,14 @@
 from threading import Lock
 from typing import Dict, List, Optional, Union
 from uuid import uuid4
+from os import path
 
 import rclpy
+from ament_index_python.packages import get_package_share_directory
 from capstone_interfaces.msg import AIPrintStatement, Objective, ObjectiveStatus, Plan
 from rclpy.node import Node
 
+from litterbug.items import Item
 from planner.ai import AI
 from planner.engine import RobotEngine
 from planner.llm import OpenAI
@@ -339,12 +342,15 @@ class Service(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    # llm = OpenAI(model="gpt-4-1106-preview")
-    llm = OpenAI()
-    ai = AI(llm)
-    engine = RobotEngine()
+    items_dir = path.join(get_package_share_directory("planner"), "items")
 
-    # ai.spin()
+    llm = OpenAI(model="gpt-4-1106-preview")
+    # llm = OpenAI()
+    items = Item.from_csv(path.join(items_dir, "items.csv"))
+    ai = AI(llm)
+    engine = RobotEngine(items)
+
+    ai.spin()
     engine.spin()
 
     service = Service(ai, engine)
