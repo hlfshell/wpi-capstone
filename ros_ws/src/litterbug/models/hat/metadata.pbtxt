@@ -1,0 +1,35 @@
+model {
+  file: "model.sdf"
+}
+name: "DPC_Handmade_Hat_Brown"
+description: "DPC Handmade Hat, Brown"
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "DPC"
+}
+annotations {
+  key: "gtin"
+  value: "00016698134781"
+}
+annotations {
+  key: "sku"
+  value: "00016698134781"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Hat"
+}

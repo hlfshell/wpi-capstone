@@ -1,0 +1,39 @@
+model {
+  file: "model.sdf"
+}
+name: "Twinlab_Nitric_Fuel"
+description: "Twinlab Nitric Fuel\nFinally, a product that takes you beyond  a simple pump.*  Nitric  Fuel? floods muscles  with  Nitric  Oxide, Beta-Alanine and Creatine in an innovative bi-layer tablet designed for both quick and prolonged power and pump.* Nitric Fuel goes beyond simple \"pump\" products by combining the volumizing effects  of Nitric Oxide (from Di-arginine Malate and Citrulline Malate) with stamina-boosting Beta-Alanine and performance-enhancing Creatine (Di-creatine Malate).* Nitric Oxide increases blood flow, which may deliver more nutrients to muscles and help get that pumped-up post workout look.* In addition to Di-arginine Malate and Di-creatine Malate, Nitric Fuel\'s Power Pump Complex contains Citrulline Malate, a precursor to Nitric Oxide that helps promote resistance to fatigue and better muscle recovery; Aspartic acid, which may increase stamina; and L-histidine, an amino acid that combines with Beta- Alanine to further increase muscular strength.* We also added Glyceryl Monostearate, which helps transport water into muscle cells and may further promote muscle hydration.* All of these nutrients are combined in a unique bi-layer tablet. The gray side of the tablet dissolves quickly to kick-start your workout, while the blue side dissipates more slowly to fuel sustained and intense 1-2 hour workouts.*  *These statements have not been evaluated by the Food and Drug Administration.  This product is not intended to diagnose, treat, cure or prevent disease."
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Twinlab Fuel"
+}
+annotations {
+  key: "gtin"
+  value: "027434036948"
+}
+annotations {
+  key: "mpn"
+  value: "2878"
+}
+annotations {
+  key: "sku"
+  value: "0-27434-03694-8"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Bottles and Cans and Cups"
+}
