@@ -19,6 +19,10 @@ setup(
             os.path.join("share", package_name, "prompts"),
             glob(os.path.join("prompts", "*")),
         ),
+        (
+            os.path.join("share", package_name, "items"),
+            glob(os.path.join("items", "*")),
+        ),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
