@@ -51,7 +51,7 @@ class QuestionAnswerService(Node):
 
         state_objects: List[StateObject] = []
         for index, row in res.iterrows():
-            print(">>>", index, row)
+            # self.get_logger().info(f">>> {index}, {row}")
             state_objects.append(
                 StateObject(
                     id=row["id"],
