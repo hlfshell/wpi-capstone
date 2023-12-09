@@ -7,7 +7,8 @@
         <geometry>
           <mesh>
             <scale>1 1 1</scale>
-            <uri>meshes/oven.dae</uri>
+            <!-- <uri>meshes/oven.dae</uri> -->
+            <uri>model://oven/meshes/oven.dae</uri>
             <submesh>
               <name>Oven</name>
               <center>false</center>
@@ -31,7 +32,8 @@
         <geometry>
           <mesh>
             <scale>1 1 1</scale>
-            <uri>meshes/oven.dae</uri>
+            <!-- <uri>meshes/oven.dae</uri> -->
+            <uri>model://oven/meshes/oven.dae</uri>
             <submesh>
               <name>Glass</name>
               <center>false</center>

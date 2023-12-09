@@ -6,14 +6,16 @@
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>meshes/WaterBottle.glb</uri>
+            <!-- <uri>meshes/WaterBottle.glb</uri> -->
+            <uri>model://water_bottle/meshes/WaterBottle.glb</uri>
           </mesh>
         </geometry>
       </collision>
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>meshes/WaterBottle.glb</uri>
+            <!-- <uri>meshes/WaterBottle.glb</uri> -->
+            <uri>model://water_bottle/meshes/WaterBottle.glb</uri>
           </mesh>
         </geometry>
         <!-- The WaterBottle.glb mesh contains all the pbr textures and value

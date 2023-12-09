@@ -21,7 +21,8 @@ and authored by Adwait Naik. The moment of interia is not supposed to be changed
         <collision name="collision">
           <geometry>
           	<mesh>
-             <uri>textured.dae</uri>
+             <!-- <uri>textured.dae</uri> -->
+              <uri>model://orange/textured.dae</uri>
             </mesh>
           </geometry>
         </collision>
@@ -29,7 +30,8 @@ and authored by Adwait Naik. The moment of interia is not supposed to be changed
         <visual name="visual">
           <geometry>
           	<mesh>
-            <uri>textured.dae</uri>
+            <!-- <uri>textured.dae</uri> -->
+            <uri>model://orange/textured.dae</uri>
 	        </mesh>
           </geometry>
         </visual>
