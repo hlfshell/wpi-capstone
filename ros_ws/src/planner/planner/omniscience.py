@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import sqrt
 from threading import Lock, Thread
 from time import sleep
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Optional
 
 import rclpy
 from gazebo_msgs.srv import GetEntityState, GetModelList
@@ -21,7 +21,7 @@ class OmniscienceModule(Node):
 
     def __init__(self, items: List[Item]):
         super().__init__("omniscience_module")
-        self.__executor = rclpy.executors.MultiThreadedExecutor()
+        self.__executor = None
 
         self.__items_lock = Lock()
         # self.__items_by_type is a dictionary of item type to list of items
@@ -35,6 +35,7 @@ class OmniscienceModule(Node):
             qos_profile=10,  # Keep last
         )
         self.__first_pose_received: bool = False
+        self.__pose_tripwire: bool = True
         self.__pose_lock = Lock()
         self.__position: Tuple[float, float] = (0.0, 0.0)
 
@@ -47,9 +48,7 @@ class OmniscienceModule(Node):
         )
         self.__get_entity_state_client.wait_for_service()
 
-        self.create_timer(1.0 / 5.0, self.__update_items_locations)
-
-    def __get_item(self, item: Union[str, int]) -> List[Item]:
+    def __get_item(self, item: str) -> List[Item]:
         """
         __get_item returns the item by its name or id
         """
@@ -57,23 +56,39 @@ class OmniscienceModule(Node):
         with self.__items_lock:
             for i in self.__items:
                 if isinstance(item, str):
-                    if i.name == item:
+                    if i.label == item:
                         items.append(i)
                 else:
-                    if i.label == item:
+                    raise "No ints supported"
+                    if i.name == item:
                         items.append(i)
         return items
 
-    def am_i_near(self, item: Union[str, int], distance: float) -> bool:
+    def am_i_near(
+        self, item: str, distance: float, location: Optional[Tuple[float, float]] = None
+    ) -> bool:
         """
         Check if the robot is near the item.
         """
-        robot_position = self.robot_position()
+        self.get_logger().info(f"Checking if near {item}")
+        if location is None:
+            robot_position = self.robot_position()
+        else:
+            robot_position = location
         items = self.__get_item(item)
 
+        self.get_logger().info(f"Robot position: {robot_position}")
+
+        self.get_logger().info(f"Found {len(items)} items")
+
         for target in items:
-            if self.__distance(robot_position, target.origin) < distance:
+            target = self.__distance(robot_position, target.origin)
+            check = target <= distance
+            self.get_logger().info(f"Checking {target} - {distance}")
+            if check:
+                self.get_logger().info(f"Found {item}")
                 return True
+        self.get_logger().info(f"Nuthin")
         return False
 
     def robot_position(self) -> Tuple[float, float]:
@@ -82,20 +97,25 @@ class OmniscienceModule(Node):
         of the robot. Will lock until the first odom msg is
         received.
         """
+        with self.__pose_lock:
+            self.__pose_tripwire = False
         while True:
             with self.__pose_lock:
-                if self.__first_pose_received:
+                if not self.__pose_tripwire:
+                    position = self.__position
                     break
             sleep(0.1)
-        with self.__pose_lock:
-            return self.__position
+        # with self.__pose_lock:
+        #     return self.__position
+        return position
 
     def __pose_callback(self, msg: Odometry):
         """
         __pose_callback updates our current position of the robot
         """
         with self.__pose_lock:
-            self.__first_pose_received = True
+            if not self.__pose_tripwire:
+                self.__pose_tripwire = True
             self.__position = (
                 msg.pose.pose.position.x,
                 msg.pose.pose.position.y,
@@ -210,8 +230,13 @@ class OmniscienceModule(Node):
         """
         spin starts the omniscience module
         """
+        if self.__executor is not None:
+            raise Exception("Already spinning")
+        self.__executor = rclpy.executors.MultiThreadedExecutor()
         self.__executor.add_node(self)
         Thread(target=self.__executor.spin, daemon=True).start()
+
+        self.create_timer(1.0 / 5.0, self.__update_items_locations)
 
 
 HUMAN_LABELS = ["human", "person", "man", "woman"]

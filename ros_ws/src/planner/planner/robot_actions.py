@@ -125,6 +125,14 @@ class MoveToObject(Action):
 
         location = object.position
 
+        # self.__omniscience.get_logger().info(f"Moving to {location}")
+        # self.__omniscience.get_logger().info(
+        #     f"Current position navi: {self.__navigator.get_current_pose()}"
+        # )
+        # self.__omniscience.get_logger().info(
+        #     f"Current position omni: {self.__omniscience.robot_position()}"
+        # )
+
         # self.__navigator.move_to(location, self.__movement_complete_callback)
 
         result, msg = self.__navigator.move_to_synchronous(location)
@@ -135,25 +143,30 @@ class MoveToObject(Action):
             self._set_result((False, msg))
             return
 
-        # Confirm if we've seen the item, which we should since
-        # we just moved to it. Basically see if it's in front
-        # of us and it hasn't moved.
-        with self.__object_id_lock:
-            object_id = self.__object_id
-
         # If we see the object within half a meter in the past
         # five seconds, we succeed
         # Check to see if the object is nearby via omniscience
         # for ease of simulation due to issues w/ vision
-        if self.__omniscience.am_i_near(object_id, 1.0):
+        # self.__omniscience.get_logger().info(
+        #     f"Current position navi: {self.__navigator.get_current_pose()}"
+        # )
+        # self.__omniscience.get_logger().info(
+        #     f"Current position omni: {self.__omniscience.robot_position()}"
+        # )
+        robot_position, _ = self.__navigator.get_current_pose()
+        if self.__omniscience.am_i_near(
+            object.description, 1.25, location=robot_position
+        ):
             # if self.__vision.is_nearby_since(
             #     object_id,
             #     2.0,
             #     5.0,
             # ):
-            return self._set_result((True, ""))
+            self._set_result((True, ""))
+            return
         else:
-            return self._set_result((False, "object not seen"))
+            self._set_result((False, "object not seen"))
+            return
 
     def _cancel(self):
         self.__navigator.cancel()

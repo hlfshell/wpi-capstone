@@ -8,6 +8,7 @@ import rclpy
 from litterbug.items import Item
 from rclpy.node import Node
 
+from capstone_interfaces.msg import RobotAction
 from planner.action import Action, ActionPlanner
 from planner.interaction import InteractionModule
 from planner.navigation import NavigationModule
@@ -38,6 +39,10 @@ class RobotEngine(Node):
         super().__init__("robot_engine")
 
         self.__executor = rclpy.executors.MultiThreadedExecutor()
+
+        self.__actions_publisher = self.create_publisher(
+            RobotAction, "/objective/action", 10
+        )
 
         # Modules
         self.__omniscience_module = OmniscienceModule(items)
@@ -73,7 +78,9 @@ class RobotEngine(Node):
             "fail": partial(self.__mark_result, False),
         }
 
-        self.__action_planner = ActionPlanner(actions, functions)
+        self.__action_planner = ActionPlanner(
+            actions, functions, on_call_callback=self.__on_call
+        )
 
         self.__output_callback: Callable = None
 
@@ -118,6 +125,20 @@ class RobotEngine(Node):
     def __broadcast(self, msg):
         if self.__output_callback is not None:
             self.__output_callback(msg)
+
+    def __on_call(self, function_name: str, *args, **kwargs):
+        # Combine args and kwargs into a single string of comma
+        # delimited as if it was being passed into a function
+        parameters = ", ".join(
+            [str(arg) for arg in args] + [f"{k}={v}" for k, v in kwargs.items()]
+        )
+
+        self.__actions_publisher.publish(
+            RobotAction(
+                function=function_name,
+                parameters=parameters,
+            )
+        )
 
 
 class StdOutRedirect(io.TextIOBase):

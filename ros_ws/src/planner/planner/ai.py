@@ -130,13 +130,16 @@ class AI(Node):
 
         # Create multiple simultaneous threads at once to
         # generate plans
+        self.get_logger().info("Generating futures")
         futures: List[Future] = []
         with ThreadPoolExecutor(max_workers=count) as executor:
             for _ in range(count):
                 future = executor.submit(self.__llm.prompt, prompts)
                 futures.append(future)
 
+        self.get_logger().info("Waiting for plans to generate")
         wait(futures)
+        self.get_logger().info("Plans generated")
         outputs: List[str] = []
         for future in futures:
             try:
@@ -144,6 +147,7 @@ class AI(Node):
             except:  # noqa
                 pass
 
+        self.get_logger().info(f"Generated {len(outputs)} plans")
         return outputs
 
     def generate_state_prompt(self, objective: str) -> str:

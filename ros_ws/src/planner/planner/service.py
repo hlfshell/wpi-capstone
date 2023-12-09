@@ -13,6 +13,9 @@ from planner.ai import AI
 from planner.engine import RobotEngine
 from planner.llm import OpenAI
 
+from time import sleep
+from threading import Thread
+
 # Statuses
 """
 The expected trajectory of an objective is as follows:
@@ -87,6 +90,29 @@ class Service(Node):
 
         self.__plan_processor = self.create_timer(0.5, self.__process_plan)
         self.__plan_executor = self.create_timer(0.5, self.__execute_plan)
+
+        Thread(target=self.test).start()
+
+    def test(self):
+        sleep(5.0)
+        with self.__lock:
+            self.get_logger().info("Triggered test")
+            id = "test"
+
+            plan = open("./runme.py", "r").read()
+
+            status = ObjectiveStatus(
+                status=INIT,
+                id=id,
+                message="plan generated, initializing robot",
+            )
+            self.__objective_id = id
+            self.__history[id] = [status]
+            self.__status = status
+            self.__plan_id = str(uuid4())
+            self.__plan = plan
+        self.__log_objective_status(status)
+        self.__objective_status_publisher.publish(status)
 
     def __objective_callback(self, msg: Objective):
         """
@@ -186,14 +212,19 @@ class Service(Node):
         self.__log_objective_status(status)
         self.__objective_status_publisher.publish(status)
 
+        self.get_logger().info("Jumping into while")
         attempts = 0
         while True:
             try:
                 plan_id = str(uuid4())
+                self.get_logger().info("Generating plans")
                 plans: List[str] = self.__ai.generate_plans(objective)
+                self.get_logger().info("Getting best plan")
                 plan = self.__ai.get_best_plan(objective, plans)
+                self.get_logger().info("Got best plan!!!!!!!!!")
                 break
             except Exception as e:
+                raise e
                 self.get_logger().error(e)
                 attempts += 1
                 if attempts > 3:
@@ -216,6 +247,7 @@ class Service(Node):
                     return
 
         # Set our plan and announce its creation
+        self.get_logger().info("Setting plan")
         with self.__lock:
             self.__plan = plan
             self.__plan_id = plan_id
@@ -321,6 +353,7 @@ class Service(Node):
                 self.__objective_status_publisher.publish(status)
 
         except Exception as e:
+            raise e
             self.get_logger().error(str(e))
             with self.__lock:
                 status = ObjectiveStatus(
