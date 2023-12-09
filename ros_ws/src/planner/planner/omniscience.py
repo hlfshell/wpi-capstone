@@ -83,6 +83,30 @@ class OmniscienceModule(Node):
                 return True
         return False
 
+    def am_i_near_objects(
+        self, item: str, distance: float, location: Optional[Tuple[float, float]] = None
+    ) -> List[Tuple[Item, float]]:
+        """
+        Check if the robot is near the item, returning all matching nearby items
+        """
+        if location is None:
+            location = self.robot_position()
+
+        items = self.__get_item(item)
+
+        found: List[Item] = []
+
+        for target in items:
+            distance_from = self.__distance(location, target.origin)
+            check = distance_from <= distance
+            if check:
+                found.append((target, distance_from))
+
+        # Sort found by distance, closest first (the second element of the tuple)
+        found.sort(key=lambda x: x[1])
+
+        return found
+
     def robot_position(self) -> Tuple[float, float]:
         """
         robot_position returns the last known position

@@ -16,6 +16,7 @@ from capstone_interfaces.msg import StateObject, Room
 
 from threading import Lock
 
+from litterbug.items import Item
 from planner.omniscience import OmniscienceModule
 from planner.interaction import InteractionModule
 from planner.navigation import NavigationModule
@@ -432,32 +433,44 @@ class LookAround(Action):
         self.__cancel_flag = False
         self.__cancel_lock = Lock()
 
-    def _execute(self, object_to_look_for: Union[str, int, List[str], List[int]]):
+    def __items_check(self, objects_to_look_for: List[str]) -> List[Tuple[str, float]]:
+        vision_distance = 8.0
+        vision_since = 5.0
+
+        stuff_found: List[Tuple[str, float]] = []
+        for object in objects_to_look_for:
+            # If we are next to an item we "auto-see" it
+            objects = self.__omniscience.am_i_near_objects(object, 1.0)
+            for object in objects:
+                item: Item = object[0]
+                distance = object[1]
+                stuff_found.append((item.label, distance))
+            objects = self.__vision.is_nearby_since_items(
+                object, vision_distance, vision_since
+            )
+            for object in objects:
+                label: str = object[0]
+                distance = object[1]
+                stuff_found.append((label, distance))
+        return stuff_found
+
+    def _execute(self, objects_to_look_for: Union[str, int, List[str], List[int]]):
         """
         Send a give object request
         """
-        vision_distance = 8.0
-        vision_since = 5.0
+
+        if isinstance(objects_to_look_for, int):
+            objects_to_look_for = [objects_to_look_for]
+        elif isinstance(objects_to_look_for, str):
+            objects_to_look_for = [objects_to_look_for]
+
+        stuff_found: List[Tuple[str, float]] = []
+
         # Check before spinning
-        if isinstance(object_to_look_for, list):
-            for object in object_to_look_for:
-                # If we are next to an item we "auto-see" it
-                if self.__omniscience.am_i_near(object, 1.0):
-                    self._set_result(True)
-                    return
-                if self.__vision.is_nearby_since(object, vision_distance, vision_since):
-                    self._set_result(True)
-                    return
-        else:
-            # If we are next to an item we "auto-see" it
-            if self.__omniscience.am_i_near(object_to_look_for, 1.0):
-                self._set_result(True)
-                return
-            if self.__vision.is_nearby_since(
-                object_to_look_for, vision_distance, vision_since
-            ):
-                self._set_result(True)
-                return
+        stuff_found = self.__items_check(objects_to_look_for)
+        if len(stuff_found) > 0:
+            self._set_result(stuff_found)
+            return
 
         for spin in range(4):
             # We want to spin pi / 2, but we add a bit as a buffer
@@ -470,31 +483,16 @@ class LookAround(Action):
             # Check to see if we canceled the rotation since rotating
             with self.__cancel_lock:
                 if self.__cancel_flag:
-                    self._set_result(False)
+                    self._set_result([])
                     return
 
-            if isinstance(object_to_look_for, list):
-                for object in object_to_look_for:
-                    if self.__omniscience.am_i_near(object, 1.0):
-                        self._set_result(True)
-                        return
-                    if self.__vision.is_nearby_since(
-                        object, vision_distance, vision_since
-                    ):
-                        self._set_result(True)
-                        return
-            else:
-                if self.__omniscience.am_i_near(object_to_look_for, 1.0):
-                    self._set_result(True)
-                    return
-                if self.__vision.is_nearby_since(
-                    object_to_look_for, vision_distance, vision_since
-                ):
-                    self._set_result(True)
-                    return
+            stuff_found = self.__items_check(objects_to_look_for)
+            if len(stuff_found) > 0:
+                self._set_result(stuff_found)
+                return
 
         # If we've made it here, we didn't see it
-        self._set_result(False)
+        self._set_result([])
 
     def _cancel(self):
         """

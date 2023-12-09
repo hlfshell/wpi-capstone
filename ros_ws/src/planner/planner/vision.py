@@ -101,6 +101,32 @@ class VisionModule(Node):
 
             #     return False
 
+    def is_nearby_since_items(
+        self,
+        object: Union[str, int],
+        distance: float,
+        time: float,
+        location: Optional[Tuple[float, float]] = None,
+    ) -> List[Tuple[str, float]]:
+        if location is None:
+            with self.__position_lock:
+                location = self.__position
+
+        items: List[Tuple[str, float]] = []
+        with self.__object_spotted_lock:
+            if object not in self.__object_tracking:
+                return []
+
+            for target in self.__object_tracking[object]:
+                if target.last_seen < time:
+                    continue
+
+                target_distance = target.distance(location)
+                if target_distance < distance:
+                    items.append((target.label, target_distance))
+
+        return items
+
 
 class ObjectTracker:
     """
