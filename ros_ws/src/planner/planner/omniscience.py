@@ -70,25 +70,17 @@ class OmniscienceModule(Node):
         """
         Check if the robot is near the item.
         """
-        self.get_logger().info(f"Checking if near {item}")
         if location is None:
             robot_position = self.robot_position()
         else:
             robot_position = location
         items = self.__get_item(item)
 
-        self.get_logger().info(f"Robot position: {robot_position}")
-
-        self.get_logger().info(f"Found {len(items)} items")
-
         for target in items:
             target = self.__distance(robot_position, target.origin)
             check = target <= distance
-            self.get_logger().info(f"Checking {target} - {distance}")
             if check:
-                self.get_logger().info(f"Found {item}")
                 return True
-        self.get_logger().info(f"Nuthin")
         return False
 
     def robot_position(self) -> Tuple[float, float]:

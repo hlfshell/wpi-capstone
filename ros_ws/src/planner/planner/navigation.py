@@ -85,7 +85,7 @@ class NavigationModule(Node):
     def move_to(
         self,
         location: Tuple[float, float],
-        result_callback: Callable,
+        result_callback: Optional[Callable],
         distance_for_success: float = 0.75,
         acceptable_angle_difference: float = pi / 8,
         orientation: Optional[
@@ -253,7 +253,16 @@ class NavigationModule(Node):
             goal_position = self.__goal_position
             goal_orientation = self.__goal_orientation
 
-        distance = self.__distance(current_position, goal_position)
+        if goal_position is None:
+            # There seems to be an errant race condition where goal
+            # position can be None due to a cancellation or double
+            # completion. In any event, we abort here if that's the
+            # case and assume we're ok
+            with self.__result_callback_lock:
+                callback = self.__result_callback
+            return
+
+        distance = self.distance(current_position, goal_position)
 
         result = distance < self.__distance_for_success
 
@@ -308,7 +317,7 @@ class NavigationModule(Node):
                 msg.pose.pose.orientation.w,
             )
 
-    def __distance(self, a: Tuple[float, float], b: [float, float]) -> float:
+    def distance(self, a: Tuple[float, float], b: [float, float]) -> float:
         """
         __distance calculates the distance between two points
         """

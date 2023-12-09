@@ -91,7 +91,7 @@ class Service(Node):
         self.__plan_processor = self.create_timer(0.5, self.__process_plan)
         self.__plan_executor = self.create_timer(0.5, self.__execute_plan)
 
-        Thread(target=self.test).start()
+        # Thread(target=self.test).start()
 
     def test(self):
         sleep(5.0)

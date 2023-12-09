@@ -135,13 +135,20 @@ class MoveToObject(Action):
 
         # self.__navigator.move_to(location, self.__movement_complete_callback)
 
-        result, msg = self.__navigator.move_to_synchronous(location)
+        self.__navigator.move_to(location, lambda x: None)
 
-        # If the result is a failure, we either cancelled or
-        # failed to reach the spot for some reason.
-        if not result:
-            self._set_result((False, msg))
-            return
+        while True:
+            if self._is_cancelled():
+                self._set_result((False, "cancelled"))
+                return
+            position, _ = self.__navigator.get_current_pose()
+
+            distance = self.__navigator.distance(location, position)
+            if distance < 1.0:
+                self.__navigator.cancel()
+                break
+
+            sleep(0.25)
 
         # If we see the object within half a meter in the past
         # five seconds, we succeed
@@ -202,10 +209,21 @@ class MoveToRoom(Action):
 
         location = (room.x, room.y)
 
-        result, msg = self.__navigator.move_to_synchronous(
-            location, distance_for_success=1.0
-        )
-        self._set_result((result, msg))
+        self.__navigator.move_to(location, lambda x: None)
+
+        while True:
+            if self._is_cancelled():
+                self._set_result((False, "cancelled"))
+                return
+            position, _ = self.__navigator.get_current_pose()
+
+            distance = self.__navigator.distance(location, position)
+            if distance < 1.0:
+                self.__navigator.cancel()
+                self._set_result((True, ""))
+                return
+
+            sleep(0.25)
 
     def __get_room(self, room_name: str) -> Optional[Room]:
         """
@@ -240,10 +258,27 @@ class MoveToHuman(Action):
         """ """
         location = self.__state.get_human_location()
 
-        result, msg = self.__navigator.move_to_synchronous(
-            location, distance_for_success=1.0
-        )
-        self._set_result((result, msg))
+        # result, msg = self.__navigator.move_to_synchronous(
+        #     location, distance_for_success=1.0
+        # )
+        self.__navigator.move_to(location, self.__complete_callback)
+
+        while True:
+            if self._is_cancelled():
+                self._set_result((False, "cancelled"))
+                return
+            position, _ = self.__navigator.get_current_pose()
+
+            distance = self.__navigator.distance(location, position)
+            if distance < 1.0:
+                self.__navigator.cancel()
+                self._set_result((True, ""))
+                return
+
+            sleep(0.25)
+
+    def __complete_callback(self, results: Tuple[bool, str]):
+        pass
 
     def _cancel(self):
         self.__navigator.cancel()

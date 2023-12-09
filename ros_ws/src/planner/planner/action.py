@@ -139,6 +139,14 @@ class Action(ABC):
             if self.__status == CANCELLING:
                 raise CancellationTriggeredException()
 
+    def _is_cancelled(self):
+        """
+        _is_cancelled is a thread safe method for implementing classes
+        to check if the action has been cancelled.
+        """
+        with self.__status_lock:
+            return self.__status == CANCELLING or self.__status == CANCELLED
+
     @abstractmethod
     def _cancel(self):
         """
