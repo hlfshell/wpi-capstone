@@ -14,7 +14,7 @@ to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
         <geometry>
           <mesh>
             <!-- <uri>meshes/model.obj</uri> -->
-            <uri>model://litterbug/pizza/meshes/model.obj</uri>
+            <uri>model://pizza/meshes/model.obj</uri>
           </mesh>
         </geometry>
       </visual>
@@ -22,7 +22,7 @@ to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
         <geometry>
           <mesh>
             <!-- <uri>meshes/model.obj</uri> -->
-            <uri>model://litterbug/pizza/meshes/model.obj</uri>
+            <uri>model://pizza/meshes/model.obj</uri>
           </mesh>
         </geometry>
       </collision>
