@@ -9,7 +9,6 @@ from nav_msgs.msg import Odometry
 
 from typing import Optional, Callable, Tuple, Union
 
-import math
 from math import asin, sin, cos, atan2, sqrt, pi
 from time import sleep
 
@@ -215,7 +214,14 @@ class NavigationModule(Node):
         with self.__sync_lock:
             self.sync_complete = False
 
-        self.spin(rotation, lambda result: None, angle_difference_acceptable)
+        def callback(msg):
+            with self.__sync_lock:
+                self.__sync_complete = True
+                with self.__goal_pose_lock:
+                    self.__goal_position = None
+                    self.__goal_orientation = None
+
+        self.spin(rotation, callback, angle_difference_acceptable)
 
         while True:
             with self.__sync_lock:
