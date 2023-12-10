@@ -20,8 +20,8 @@ setup(
             glob(os.path.join("prompts", "*")),
         ),
         (
-            os.path.join("share", package_name, "items"),
-            glob(os.path.join("items", "*")),
+            os.path.join("share", package_name, "maps"),
+            glob(os.path.join("maps", "*")),
         ),
     ],
     install_requires=["setuptools"],
