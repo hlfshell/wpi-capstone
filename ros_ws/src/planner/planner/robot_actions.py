@@ -454,6 +454,27 @@ class LookAround(Action):
                 stuff_found.append((label, distance))
         return stuff_found
 
+    def filter_items(self, items: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
+        """
+        Filter the items to identify likely duplicates and throw
+        them out
+        """
+        # Move through each item and see if we essentially "duplicated"
+        # objects by determining a match on label and a "too close"
+        # distance
+        for i in range(len(items)):
+            for j in range(len(items)):
+                if i == j:
+                    continue
+
+                item1 = items[i]
+                item2 = items[j]
+
+                if item1[0] == item2[0] and item1[1] < 0.25:
+                    items.pop(i)
+                    break
+        return items
+
     def _execute(self, objects_to_look_for: Union[str, int, List[str], List[int]]):
         """
         Send a give object request
@@ -469,7 +490,7 @@ class LookAround(Action):
         # Check before spinning
         stuff_found = self.__items_check(objects_to_look_for)
         if len(stuff_found) > 0:
-            self._set_result(stuff_found)
+            self._set_result(self.filter_items(stuff_found))
             return
 
         for spin in range(4):
@@ -488,7 +509,7 @@ class LookAround(Action):
 
             stuff_found = self.__items_check(objects_to_look_for)
             if len(stuff_found) > 0:
-                self._set_result(stuff_found)
+                self._set_result(self.filter_items(stuff_found))
                 return
 
         # If we've made it here, we didn't see it
