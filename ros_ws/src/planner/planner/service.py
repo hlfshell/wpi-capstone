@@ -9,7 +9,7 @@ from rclpy.node import Node
 
 from planner.ai import AI
 from planner.engine import RobotEngine
-from planner.llm import OpenAI
+from planner.llm import OpenAI, PaLM
 
 from time import sleep
 from threading import Thread
@@ -373,8 +373,9 @@ class Service(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    llm = OpenAI(model="gpt-4-1106-preview")
-    # llm = OpenAI()
+    # llm = OpenAI(model="gpt-4-1106-preview")
+    llm = OpenAI()
+    # llm = PaLM()
     ai = AI(llm)
 
     engine = RobotEngine()
