@@ -144,6 +144,11 @@ class Litterbug(Node):
             srv_name="place_object",
             callback=self.__give_object,
         )
+        self.__pickup_announcement = self.create_publisher(
+            msg_type=ItemMsg,
+            topic="/litterbug/pickup",
+            qos_profile=10,  # Keep last
+        )
 
     def wait_for_ready(self):
         self.__gazebo.wait_for_ready()
@@ -299,6 +304,17 @@ class Litterbug(Node):
             return response
 
         response.success = True
+
+        # Announce that we picked up the object so state can handle
+        # it
+        self.__pickup_announcement.publish(
+            ItemMsg(
+                name=item.name,
+                label=item.label,
+                x=item.origin[0],
+                y=item.origin[1],
+            )
+        )
 
         return response
 
