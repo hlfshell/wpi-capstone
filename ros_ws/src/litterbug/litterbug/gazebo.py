@@ -44,11 +44,12 @@ class Gazebo(Node):
         self.__get_entity_state_client.wait_for_service()
         self.__get_entity_exists_client.wait_for_service()
 
-    def spawn_item(self, item: Item):
+    def spawn_item(self, item: Item, logger):
         """
         spawn_item spawns an item into the world
         """
         if self.item_exists(item):
+            logger.info(f"Item {item.name} already exists; can not create")
             raise ItemAlreadyExists(item)
 
         request = SpawnEntity.Request()
@@ -73,7 +74,11 @@ class Gazebo(Node):
         response: SpawnEntity.Response = future.result()
 
         if not response.success:
+            logger.info(f"Could not add item {item.name} - {response.status_message}")
             raise CouldNotAddItem(item, response.status_message)
+        logger.info(
+            f"Added item {item.name} successfully {response.success} - {response.status_message}"
+        )
 
     def item_exists(self, item: Item) -> bool:
         """
@@ -179,19 +184,6 @@ class Gazebo(Node):
         with separate clients.
         """
         return Gazebo(self.__models_dir)
-
-    def test(self):
-        can = Item(
-            "coke_can",
-            "coke_can",
-            "coke_can/model.sdf",
-            (-0.092239, -1.62404, 0.5),
-            (0.0, 0.0, 0.0, 0.0),
-        )
-
-        self.spawn_item(can)
-        sleep(5.0)
-        self.spawn_item(can)
 
 
 class ItemAlreadyExists(Exception):
