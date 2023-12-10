@@ -202,41 +202,6 @@ class Map:
         """
         # First we check to see if the location is known
         pixel_location = self.__meter_coordinates_to_pixel_coordinates(location)
-        # test = self.__pixel_coordinates_to_meter_coordinates(pixel_location)
-        # if test != location:
-        #     return (test, location)
-
-        img = self.to_rgb()
-        origin_pixel = self.__meter_coordinates_to_pixel_coordinates((0.0, 0.0))
-        cv2.circle(
-            img,
-            origin_pixel,
-            5,
-            (0, 255, 0),
-            thickness=3,
-        )
-        robot_location = (6.622764, -1.855462)
-        robot_pixel = self.__meter_coordinates_to_pixel_coordinates(robot_location)
-        cv2.circle(
-            img,
-            robot_pixel,
-            5,
-            (0, 0, 255),
-            thickness=3,
-        )
-        cv2.circle(
-            img,
-            pixel_location,
-            5,
-            (255, 0, 0),
-            thickness=3,
-        )
-
-        rgb = self.resize_img(img, 800)
-
-        cv2.imshow("map", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-
-        cv2.waitKey()
 
         reversed = (pixel_location[1], pixel_location[0])
 
@@ -270,7 +235,6 @@ class Map:
 
                     point_real = self.__pixel_coordinates_to_meter_coordinates(
                         (point[1], point[0])
-                        # point
                     )
 
                     distance = self.__distance(point_real, location)
@@ -279,14 +243,4 @@ class Map:
 
                     # Check the point
                     if self.map[point] == FREE:
-                        cv2.circle(
-                            img,
-                            (point[1], point[0]),
-                            5,
-                            (255, 255, 0),
-                            thickness=3,
-                        )
-                        rgb = self.resize_img(img, 800)
-                        cv2.imshow("map", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-                        cv2.waitKey()
                         return point_real

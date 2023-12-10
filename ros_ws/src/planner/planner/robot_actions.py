@@ -128,16 +128,6 @@ class MoveToObject(Action):
 
         location = object.position
 
-        # self.__omniscience.get_logger().info(f"Moving to {location}")
-        # self.__omniscience.get_logger().info(
-        #     f"Current position navi: {self.__navigator.get_current_pose()}"
-        # )
-        # self.__omniscience.get_logger().info(
-        #     f"Current position omni: {self.__omniscience.robot_position()}"
-        # )
-
-        # self.__navigator.move_to(location, self.__movement_complete_callback)
-
         self.__navigator.mover(location, 0.75)
 
         # If we see the object within set distance in the past
@@ -148,11 +138,6 @@ class MoveToObject(Action):
         if self.__omniscience.am_i_near(
             object.description, 1.25, location=robot_position
         ):
-            # if self.__vision.is_nearby_since(
-            #     object_id,
-            #     2.0,
-            #     5.0,
-            # ):
             self._set_result((True, ""))
             return
         else:

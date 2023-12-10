@@ -102,7 +102,7 @@ class NavigationModule(Node):
         spot = self.__map.closest_known_point(location, distance_for_success)
         if len(spot) > 2:
             self.get_logger().info(f"Errored {spot}")
-            raise "boobs"
+            raise "TODO"
 
         return self.move_to_synchronous(spot, distance_for_success)
 
