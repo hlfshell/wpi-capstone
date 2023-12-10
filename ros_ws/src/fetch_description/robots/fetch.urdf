@@ -47,19 +47,19 @@
   <!-- Add four casters to the base -->
   <xacro:macro name="caster" params="prefix joint_x joint_y">
   <link name="${prefix}_caster_link">
-    <visual>
+    <!-- <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <sphere radius="0.0601"/> <!-- 0.06033 -->
+        <sphere radius="0.06033"/> 
       </geometry>
       <material name="">
         <color rgba="0.086 0.506 0.767 1"/>
       </material>
-    </visual>
+    </visual> -->
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <sphere radius="0.0601"/>
+        <sphere radius="0.06033"/>
       </geometry>
     </collision>
     <inertial>
@@ -107,7 +107,7 @@
       <origin rpy="0 0 0" xyz="0 0 0" />
       <geometry>
         <!--mesh filename="package://fetch_description/meshes/r_wheel_link_collision.STL"/-->
-        <sphere radius="0.065"/>
+        <sphere radius="0.06033"/>
       </geometry>
     </collision>
   </link>
@@ -137,7 +137,7 @@
       <origin rpy="0 0 0" xyz="0 0 0" />
       <geometry>
         <!--mesh filename="package://fetch_description/meshes/l_wheel_link_collision.STL" /-->
-        <sphere radius="0.065"/>
+        <sphere radius="0.06033"/>
       </geometry>
     </collision>
   </link>
@@ -170,7 +170,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="torso_lift_joint" type="prismatic">
+  <joint name="torso_lift_joint" type="fixed">
     <origin rpy="-6.123E-17 0 0" xyz="-0.086875 0 0.37743" />
     <parent link="base_link" />
     <child link="torso_lift_link" />
@@ -199,7 +199,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="head_pan_joint" type="revolute">
+  <joint name="head_pan_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.053125 0 0.603001417713939" />
     <parent link="torso_lift_link" />
     <child link="head_pan_link" />
@@ -227,7 +227,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="head_tilt_joint" type="revolute">
+  <joint name="head_tilt_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.14253 0 0.057999" />
     <parent link="head_pan_link" />
     <child link="head_tilt_link" />
@@ -256,8 +256,8 @@
       </geometry>
     </collision>
   </link>
-  <joint name="shoulder_pan_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.119525 0 0.34858" />
+  <joint name="shoulder_pan_joint" type="fixed">
+    <origin rpy="0 0 1.9" xyz="0.119525 0 0.34858" />
     <parent link="torso_lift_link" />
     <child link="shoulder_pan_link" />
     <axis xyz="0 0 1" />
@@ -286,11 +286,11 @@
       </geometry>
     </collision>
   </link>
-  <joint name="shoulder_lift_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.117 0 0.0599999999999999" />
+  <joint name="shoulder_lift_joint" type="fixed">
+    <origin rpy="0 1.39 0" xyz="0.117 0 0.0599999999999999" />
     <parent link="shoulder_pan_link" />
     <child link="shoulder_lift_link" />
-    <axis xyz="0 1 0" />
+    <axis xyz="0 0.9 0" />
     <dynamics damping="1.0" />
     <limit effort="131.76" lower="-1.221" upper="1.518" velocity="1.454" />
   </joint>
@@ -316,7 +316,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="upperarm_roll_joint" type="continuous">
+  <joint name="upperarm_roll_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.219 0 0" />
     <parent link="shoulder_lift_link" />
     <child link="upperarm_roll_link" />
@@ -346,8 +346,8 @@
       </geometry>
     </collision>
   </link>
-  <joint name="elbow_flex_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.133 0 0" />
+  <joint name="elbow_flex_joint" type="fixed">
+    <origin rpy="0 2.0 0" xyz="0.133 0 0" />
     <parent link="upperarm_roll_link" />
     <child link="elbow_flex_link" />
     <axis xyz="0 1 0" />
@@ -376,7 +376,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="forearm_roll_joint" type="continuous">
+  <joint name="forearm_roll_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.197 0 0" />
     <parent link="elbow_flex_link" />
     <child link="forearm_roll_link" />
@@ -406,8 +406,8 @@
       </geometry>
     </collision>
   </link>
-  <joint name="wrist_flex_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.1245 0 0" />
+  <joint name="wrist_flex_joint" type="fixed">
+    <origin rpy="0 1.5 0" xyz="0.1245 0 0" />
     <parent link="forearm_roll_link" />
     <child link="wrist_flex_link" />
     <axis xyz="0 1 0" />
@@ -436,7 +436,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="wrist_roll_joint" type="continuous">
+  <joint name="wrist_roll_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.1385 0 0" />
     <parent link="wrist_flex_link" />
     <child link="wrist_roll_link" />
@@ -472,8 +472,8 @@
   <link name="r_gripper_finger_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-0.01 0 0" />
-      <mass value="0.0798" />
-      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002" />
+     <mass value="0.0798" />
+     <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002" />
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0.101425 0" />
@@ -497,7 +497,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="r_gripper_finger_joint" type="prismatic">
+  <joint name="r_gripper_finger_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0.015425 0" />
     <parent link="gripper_link" />
     <child link="r_gripper_finger_link" />
@@ -533,7 +533,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="l_gripper_finger_joint" type="prismatic">
+  <joint name="l_gripper_finger_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 -0.015425 0" />
     <parent link="gripper_link" />
     <child link="l_gripper_finger_link" />
@@ -718,153 +718,6 @@
     <child link="head_camera_depth_optical_frame" />
  </joint>
 
-<!-- 
-  robot_control: This code provides information about the robot's joints,
-  including their state and command interfaces.
-  It is used in conjunction with ROS2 Control to control the robot's movements.
--->
-
- <ros2_control name="GazeboSimSystem" type="system">
-  <hardware>
-    <plugin>gazebo_ros2_control/GazeboSystem</plugin>
-  </hardware>
-  <!-- wheel control -->
-  <!-- <joint name="r_wheel_joint">
-    <command_interface name="velocity"/>
-    <state_interface name="position"/>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="l_wheel_joint">
-    <command_interface name="velocity"/>
-    <state_interface name="position"/>
-    <state_interface name="velocity"/>
-  </joint> -->
-  <joint name="head_pan_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="head_tilt_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="shoulder_pan_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="shoulder_lift_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">1.5</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="upperarm_roll_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="elbow_flex_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">-2.2</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="forearm_roll_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="wrist_flex_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">-1.25</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="wrist_roll_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="gripper_axis">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="r_gripper_finger_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="l_gripper_finger_joint">
-    <command_interface name="position"/>
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="estop_joint">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="torso_fixed_joint">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="head_camera_joint">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="head_camera_rgb_joint">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="head_camera_depth_joint">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
-  <joint name="head_camera_depth_optical_joint">
-    <state_interface name="position">
-      <param name="initial_value">0.0</param>
-    </state_interface>
-    <state_interface name="velocity"/>
-  </joint>
- </ros2_control>
- <gazebo>
-  <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
-    <parameters>$(find fetch_description)/config/fetch_description_controllers.yaml</parameters>
-  </plugin>
- </gazebo>
-
   <!-- IMU Gazebo information-->
   <link name="imu_link">
   <visual>
@@ -890,7 +743,7 @@
   <sensor name="imu_sensor" type="imu">
    <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
       <ros>
-        <namespace>/demo</namespace>
+        <namespace>/imu</namespace>
         <remapping>~/out:=imu</remapping>
       </ros>
       <initial_orientation_as_reference>false</initial_orientation_as_reference>
@@ -961,6 +814,7 @@
     <!-- <ros>
       <namespace>/demo</namespace>
     </ros> -->
+    <updateRate>30</updateRate>
 
     <!-- wheels -->
     <left_joint>l_wheel_joint</left_joint>
@@ -968,7 +822,7 @@
 
     <!-- kinematics -->
     <wheel_separation>0.37476</wheel_separation>
-    <wheel_diameter>0.12</wheel_diameter>
+    <wheel_diameter>0.12066</wheel_diameter>
 
     <!-- limits -->
     <max_wheel_torque>20</max_wheel_torque>
@@ -984,6 +838,10 @@
     <command_topic>odom</command_topic>
     <odometry_frame>odom</odometry_frame>
     <robot_base_frame>base_link</robot_base_frame>
+
+    <ros>
+      <remapping>odom:=wheel/odometry</remapping>
+    </ros>
   </plugin>
 </gazebo>
 
@@ -992,7 +850,7 @@
   <sensor name="lidar" type="ray">
     <always_on>true</always_on>
     <visualize>true</visualize>
-    <update_rate>5</update_rate> <!-- SICK TIM571 has a 15Hz update rate -->
+    <update_rate>15</update_rate> <!-- SICK TIM571 has a 15Hz update rate -->
     <ray>
       <scan>
         <horizontal>

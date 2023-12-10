@@ -9,7 +9,7 @@ from launch_ros.actions import Node
 import launch_ros
 import os
 import xacro
-# TODO get nav working with fetch and fix costmap
+
 def generate_launch_description():
     pkg_share = launch_ros.substitutions.FindPackageShare(package='fetch_description').find('fetch_description')
     default_model_path = os.path.join(pkg_share, 'robots/fetch.urdf')
@@ -54,26 +54,6 @@ def generate_launch_description():
         executable='robot_state_publisher',
         output='screen',
         parameters=[robot_description, {'use_sim_time': True}]
-    )
-
-    load_joint_state_controller = ExecuteProcess(
-        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
-             'joint_state_broadcaster'],
-        output='screen'
-    )
-
-    load_fetch_controller = ExecuteProcess(
-        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
-             'fetch_controller'],
-        output='screen'
-    )
-
-    # need to provide urdf file to joint_state_publisher
-    joint_state_publisher_node = launch_ros.actions.Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher',
-        name='joint_state_publisher',
-        parameters=[{'use_sim_time': True}]
     )
 
     robot_localization_node = launch_ros.actions.Node(
@@ -134,14 +114,6 @@ def generate_launch_description():
         arguments=['-entity', 'fetch', '-topic', 'robot_description', '-x', x_pose, '-y', y_pose],
         output='screen'
     )
-    # Teleop node
-    teleop = Node(
-        package='teleop_twist_keyboard',
-        executable='teleop_twist_keyboard',
-        name='teleop_twist_keyboard',
-        output='screen',
-        prefix='xterm -e'  # This opens a new terminal for teleop input
-    )
 
     return launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(name='model', default_value=default_model_path,
@@ -150,21 +122,8 @@ def generate_launch_description():
                                             description='Absolute path to rviz config file'),
         launch.actions.DeclareLaunchArgument(name='use_sim_time', default_value='True',
                                             description='Flag to enable use_sim_time'),
-        RegisterEventHandler(
-            event_handler=OnProcessExit(
-                target_action=spawn_entity,
-                on_exit=[load_joint_state_controller],
-            )
-        ),
-        RegisterEventHandler(
-            event_handler=OnProcessExit(
-                target_action=load_joint_state_controller,
-                on_exit=[load_fetch_controller],
-            )
-        ),
         gzserver_cmd,
         gzclient_cmd,
-        joint_state_publisher_node,
         robot_state_publisher,
         house_spawner,
         nav2,
