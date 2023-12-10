@@ -1,5 +1,9 @@
+import os
 import rclpy
 from rclpy.node import Node
+
+from elevenlabs import generate, play, set_api_key
+from random import choice
 
 from capstone_interfaces.msg import (
     AIPrintStatement,
@@ -12,6 +16,12 @@ from capstone_interfaces.msg import (
 class Printer(Node):
     def __init__(self):
         super().__init__("printer")
+
+        if "ELEVENLABS_API_KEY" in os.environ:
+            set_api_key(os.environ["ELEVENLABS_API_KEY"])
+        else:
+            raise "No ElevenLabs API key found."
+
         self.__ai_out_sub = self.create_subscription(
             AIPrintStatement,
             "/objective/ai/out",
@@ -44,6 +54,7 @@ class Printer(Node):
         out = msg.out.strip()
         if out != "":
             print(f"[AI] {out}")
+            # self.__voice(out)
 
     def __objective_status(self, msg: ObjectiveStatus):
         print(f"[Objective] {msg.id} - {msg.status}")
@@ -53,6 +64,26 @@ class Printer(Node):
 
     def __objective(self, msg: Objective):
         print(f"***** [New Objective] {msg.id}: {msg.objective} *****")
+        # phrases = [
+        #     "Okay, let's go!",
+        #     "Sounds good. Let me create a plan.",
+        #     "Cool - let's get on that.",
+        #     "Beep boop, let's do it.",
+        #     "Alright, let's see what I can do.",
+        # ]
+        # phrase = choice(phrases)
+        # self.__voice(f"New objective received: {msg.objective}. {phrase}")
+
+    def __voice(self, out: str):
+        try:
+            audio = generate(
+                text=out,
+                voice="fuTxl7jIp6JGHlH2L9DW",
+                model="eleven_monolingual_v1",
+            )
+            play(audio)
+        except:
+            pass
 
 
 def main():
