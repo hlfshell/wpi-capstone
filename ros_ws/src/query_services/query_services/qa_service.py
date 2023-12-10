@@ -9,11 +9,12 @@ import sqlite3
 
 import rclpy
 import builtin_interfaces
+from math import sqrt
 from rclpy.node import Node
 
-from capstone_interfaces.msg import StateObject
+from capstone_interfaces.msg import StateObject, Item
 
-from typing import List
+from typing import List, Tuple
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -23,6 +24,12 @@ class QuestionAnswerService(Node):
         super().__init__("question_answer_service")
         self.conn = database_functions.create_connection(self, r"state_db.db")
         self.srv = self.create_service(PlannerQuery, "general_query", self.query)
+
+        # Listen for pickup messages to remove from database
+        self.__pickup_subscription = self.create_subscription(
+            Item, "/litterbug/pickup", self.__pickup_callback, 10
+        )
+
         print("inited")
 
     def query(
@@ -65,6 +72,56 @@ class QuestionAnswerService(Node):
         response.objects = state_objects
 
         return response
+
+    def __pickup_callback(self, msg: Item):
+        """
+        Removes item from database when picked up
+        """
+        print("pickup callback")
+        cur = self.conn.cursor()
+
+        # First we need to get the id of the item by
+        # searching for its label (description in the
+        # db) and then comparing the location; if
+        # it's close enough we consider it a match
+        cur.execute(
+            """
+                    SELECT
+                        id,
+                        x,
+                        y
+                    FROM objects
+                    WHERE description = ?
+                    """,
+            (msg.label,),
+        )
+        rows = cur.fetchall()
+
+        # If we don't find any matches, we can't
+        # delete anything
+        if len(rows) == 0:
+            return
+
+        # Otherwise, we need to check if any of the
+        # matches are close enough to the item
+        # we're trying to delete
+        for row in rows:
+            if self.__distance((row[1], row[2]), (msg.x, msg.y)) < 0.10:
+                cur.execute(
+                    """
+                    DELETE FROM objects
+                    WHERE id = ?
+                    """,
+                    (row[0],),
+                )
+                self.conn.commit()
+                return
+
+    def __distance(self, a: Tuple[float, float], b: Tuple[float, float]) -> float:
+        """
+        __distance calculates the distance between two points
+        """
+        return sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
 def main():
