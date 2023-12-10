@@ -1,6 +1,6 @@
 import rclpy
 from planner.ai import AI
-from planner.llm import OpenAI
+from planner.llm import OpenAI, PaLM
 
 import ast
 
@@ -20,8 +20,17 @@ instructions_prompt = (
 )
 objective_str = f"Your objective is to: {objective}"
 
-# llm = OpenAI(model="gpt-4-1106-preview")
-llm = OpenAI()
+
+models = {
+    "gpt4": OpenAI(model="gpt-4-1106-preview"),
+    "gpt3.5-turbo": OpenAI(),
+    "PaLM": PaLM(),
+}
+
+chosen_model = "PaLM"
+print(f"Using model: {chosen_model}")
+llm = models[chosen_model]
+
 ai = AI(llm)
 
 state_prompt = ai.generate_state_prompt(objective)
@@ -54,6 +63,7 @@ def measure_performance():
         for i in range(count):
             future = executor.submit(generate)
             futures.append(future)
+    print("Waiting on futures", len(futures))
     wait(futures)
 
 
@@ -91,6 +101,9 @@ for plan in plans:
             if hits >= 3:
                 actual_code += 1
                 break
+
+print(f"Completed {len(plans)} / {count}")
+count = len(plans)
 
 print(f"Compile fail: {compile_fail}/{count}= {compile_fail/count:.2f}")
 print(f"Actual code: {actual_code}/{count}= {actual_code/count:.2f}")
