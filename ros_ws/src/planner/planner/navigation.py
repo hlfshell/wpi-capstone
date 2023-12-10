@@ -6,11 +6,17 @@ from rclpy.action.client import ClientGoalHandle
 from rclpy.task import Future as ActionTaskFuture
 from nav2_msgs.action import NavigateToPose
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseStamped
+from nav2_simple_commander.robot_navigator import BasicNavigator
+from ament_index_python.packages import get_package_share_directory
+import netpbmfile
+from os import path
+from planner.map import Map
 
 from typing import Optional, Callable, Tuple, Union
 
 from math import asin, sin, cos, atan2, sqrt, pi
-from time import sleep
+from time import sleep, time
 
 
 class NavigationModule(Node):
@@ -39,6 +45,9 @@ class NavigationModule(Node):
         self.__result_callback_lock = Lock()
         self.__result_callback: Optional[Callable[[bool, str]]] = None
 
+        maps_dir = path.join(get_package_share_directory("planner"), "maps")
+        self.__map = Map.FromMapFile(path.join(maps_dir, "house"))
+
         self.__odometry_subscriber = self.create_subscription(
             msg_type=Odometry,
             topic="/odom",
@@ -53,6 +62,8 @@ class NavigationModule(Node):
         self.__sync_lock = Lock()
         self.__sync_complete: bool = False
         self.__last_result: Tuple[bool, str] = (False, "")
+
+        self.__navigator = BasicNavigator()
 
     def cancel(self):
         """
@@ -81,6 +92,20 @@ class NavigationModule(Node):
         with self.__pose_lock:
             return self.__position, self.__orientation
 
+    def mover(
+        self,
+        location: Tuple[float, float],
+        distance_for_success: float = 0.75,
+    ):
+        if len(location) > 2:
+            location = (location[0], location[1])
+        spot = self.__map.closest_known_point(location, distance_for_success)
+        if len(spot) > 2:
+            self.get_logger().info(f"Errored {spot}")
+            raise "boobs"
+
+        return self.move_to_synchronous(spot, distance_for_success)
+
     def move_to(
         self,
         location: Tuple[float, float],
@@ -99,6 +124,7 @@ class NavigationModule(Node):
         the goal (the navigation module's distance_for_success parameter). Note
         that a cancellation is considered a failure.
         """
+        self.get_logger().info(f"move_to: {location}")
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = "map"
         goal.pose.pose.position.x = location[0]
@@ -322,6 +348,14 @@ class NavigationModule(Node):
                 msg.pose.pose.orientation.z,
                 msg.pose.pose.orientation.w,
             )
+
+    def distance_to_robot(self, location: Tuple[float, float]) -> float:
+        """
+        distance_to_robot calculates the distance between the robot
+        and the given location
+        """
+        current_position, _ = self.get_current_pose()
+        return self.distance(current_position, location)
 
     def distance(self, a: Tuple[float, float], b: [float, float]) -> float:
         """

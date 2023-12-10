@@ -98,17 +98,21 @@ class OmniscienceModule(Node):
         """
         Check if the robot is near the item.
         """
+        self.get_logger().info(f"am_i_near: {item}, {distance}, {location}")
         if location is None:
-            robot_position = self.robot_position()
-        else:
-            robot_position = location
+            location = self.robot_position()
+
         items = self.__get_item(item)
+        self.get_logger().info(f"am_i_near: {items}")
 
         for target in items:
-            target = self.__distance(robot_position, target.origin)
+            target = self.__distance(location, target.origin)
             check = target <= distance
+            self.get_logger().info(f"am_i_near: {target}, {check}")
             if check:
+                self.get_logger().info(f"am_i_near: {True}")
                 return True
+        self.get_logger().info(f"am_i_near: {False}")
         return False
 
     def am_i_near_objects(

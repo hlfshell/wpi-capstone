@@ -4,11 +4,9 @@ from uuid import uuid4
 from os import path
 
 import rclpy
-from ament_index_python.packages import get_package_share_directory
 from capstone_interfaces.msg import AIPrintStatement, Objective, ObjectiveStatus, Plan
 from rclpy.node import Node
 
-from litterbug.items import Item
 from planner.ai import AI
 from planner.engine import RobotEngine
 from planner.llm import OpenAI
@@ -91,7 +89,7 @@ class Service(Node):
         self.__plan_processor = self.create_timer(0.5, self.__process_plan)
         self.__plan_executor = self.create_timer(0.5, self.__execute_plan)
 
-        # Thread(target=self.test).start()
+        Thread(target=self.test).start()
 
     def test(self):
         sleep(5.0)
@@ -375,13 +373,11 @@ class Service(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    items_dir = path.join(get_package_share_directory("planner"), "items")
-
     llm = OpenAI(model="gpt-4-1106-preview")
     # llm = OpenAI()
-    items = Item.from_csv(path.join(items_dir, "items.csv"))
     ai = AI(llm)
-    engine = RobotEngine(items)
+
+    engine = RobotEngine()
 
     ai.spin()
     engine.spin()

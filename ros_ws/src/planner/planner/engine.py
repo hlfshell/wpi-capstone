@@ -35,7 +35,7 @@ class RobotEngine(Node):
     interruption of actions via new information.
     """
 
-    def __init__(self, items: List[Item]):
+    def __init__(self):
         super().__init__("robot_engine")
 
         self.__executor = rclpy.executors.MultiThreadedExecutor()
@@ -45,7 +45,7 @@ class RobotEngine(Node):
         )
 
         # Modules
-        self.__omniscience_module = OmniscienceModule(items)
+        self.__omniscience_module = OmniscienceModule()
         self.__interaction_module = InteractionModule()
         self.__navigation_module = NavigationModule()
         self.__vision_module = VisionModule()

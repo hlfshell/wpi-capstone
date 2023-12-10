@@ -111,6 +111,8 @@ class MoveToObject(Action):
                 self._set_result((False, "item not known"))
                 return
             else:
+                # We have multiple objects; find the closest
+                # to our robot
                 object = objects[0]
                 object_to_move_to = objects[0].id
         elif isinstance(object_to_move_to, int):
@@ -136,31 +138,12 @@ class MoveToObject(Action):
 
         # self.__navigator.move_to(location, self.__movement_complete_callback)
 
-        self.__navigator.move_to(location, lambda x: None)
+        self.__navigator.mover(location, 0.75)
 
-        while True:
-            if self._is_cancelled():
-                self._set_result((False, "cancelled"))
-                return
-            position, _ = self.__navigator.get_current_pose()
-
-            distance = self.__navigator.distance(location, position)
-            if distance < 1.0:
-                self.__navigator.cancel()
-                break
-
-            sleep(0.25)
-
-        # If we see the object within half a meter in the past
+        # If we see the object within set distance in the past
         # five seconds, we succeed
         # Check to see if the object is nearby via omniscience
         # for ease of simulation due to issues w/ vision
-        # self.__omniscience.get_logger().info(
-        #     f"Current position navi: {self.__navigator.get_current_pose()}"
-        # )
-        # self.__omniscience.get_logger().info(
-        #     f"Current position omni: {self.__omniscience.robot_position()}"
-        # )
         robot_position, _ = self.__navigator.get_current_pose()
         if self.__omniscience.am_i_near(
             object.description, 1.25, location=robot_position
