@@ -33,6 +33,14 @@ class VisionModule(Node):
         )
         self.__position_lock = Lock()
         self.__position: Tuple[float, float] = (0.0, 0.0)
+        self.__debug = self.create_timer(1, self.__debug_callback)
+
+    def __debug_callback(self):
+        with self.__object_spotted_lock:
+            count = 0
+            for label, objects in self.__object_tracking.items():
+                count += len(objects)
+            self.get_logger().info(f"Tracking {count} objects")
 
     def __object_spotted_callback(self, msg: ObjectSpotted):
         label = msg.description
@@ -47,10 +55,10 @@ class VisionModule(Node):
                     if object.distance(location) < 0.5:
                         object.spotted(location)
                         return
-                    else:
-                        self.__object_tracking[label].append(
-                            ObjectTracker(label, location)
-                        )
+
+                # If we've reached this point we can assume it's
+                # a new object and add it in
+                self.__object_tracking[label].append(ObjectTracker(label, location))
 
     def __pose_callback(self, msg: Odometry):
         with self.__position_lock:
