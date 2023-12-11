@@ -1,0 +1,34 @@
+model {
+  file: "model.sdf"
+}
+name: "Melissa_Doug_Felt_Food_Pizza_Set"
+description: "Melissa & Doug Felt Food, Pizza Set"
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Melissa & Doug"
+}
+annotations {
+  key: "gtin"
+  value: "00000772039741"
+}
+annotations {
+  key: "sku"
+  value: "00000772039741"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+}

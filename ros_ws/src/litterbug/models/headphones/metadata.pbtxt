@@ -1,0 +1,39 @@
+model {
+  file: "model.sdf"
+}
+name: "Razer_Kraken_Pro_headset_Full_size_Black"
+description: "Razer Kraken Pro - headset - Full size- Black\nThe Razer Kraken Pro gaming headset can extend gaming sessions as well as for unparalleled comfort on the go. The Razer Kraken Pro\'s large neodymium magnet drivers are tuned for clear high- and mid-ranges as well as deep bass for powerful lows. A closed ear cup deign with plush circumlunar padding creates superior sound isolation so you can focus on your game or conversation uninterrupted by outside noise."
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Razer"
+}
+annotations {
+  key: "gtin"
+  value: "879862006389"
+}
+annotations {
+  key: "mpn"
+  value: "rz04-00870300-r3u1"
+}
+annotations {
+  key: "sku"
+  value: "879862006389"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Headphones"
+}

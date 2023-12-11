@@ -1,0 +1,6 @@
+bookshelf,bookshelf,bookshelf/model.sdf,-0.092239,-1.62404,0,0,0,0,1
+coke_01,coke_can,coke_can/model.sdf,-0.429654,0.697006,0,0,0,0,1
+beer_01,beer_can,beer/model.sdf,1.17719,-0.557992,0,0,0,0,1
+coke_02,coke_can,coke_can/model.sdf,1.29117,-1.72152,0,0,0,0,1
+trash_01,trash_can,trashcan/model.sdf,1.75248,0.496873,-0.000011,0,0,0,1
+fleshbag,person,human/model.sdf,0.412193,0.720793,0,0,0,0,1

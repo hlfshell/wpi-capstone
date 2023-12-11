@@ -1,0 +1,35 @@
+model {
+  file: "model.sdf"
+}
+name: "Nestl_Skinny_Cow_Heavenly_Crisp_Candy_Bar_Chocolate_Raspberry_6_pack_462_oz_total"
+description: "Nestl\357\277\275 Skinny Cow Heavenly Crisp Candy Bar ,Chocolate Raspberry - 6 pack, 4.62 oz total"
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Nestl\357\277\275"
+}
+annotations {
+  key: "gtin"
+  value: "00028000921828"
+}
+annotations {
+  key: "sku"
+  value: "00028000921828"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Consumer Goods"
+}

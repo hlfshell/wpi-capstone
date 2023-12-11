@@ -1,0 +1,38 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+<!--
+This SDF file was automatically generated using a template modified 
+and authored by Adwait Naik. The moment of interia is not supposed to be changed.
+-->
+    <model name="orange">
+      <pose>-0.007142269033564903 -0.018368262802614648 0.03363364365090191 -1.8314058421219157 0.3866113575260087 2.973170897999619</pose> 
+      <link name="link">
+        <inertial>
+          <inertia>
+           <ixx>1.0967878631910061e-07</ixx>
+           <ixy>-1.794341152772095e-24</ixy>
+           <ixz>4.943179957541729e-24</ixz>
+           <iyy>1.073889672522953e-07</iyy>
+           <iyz>1.649161315968014e-23</iyz>
+           <izz>1.065750028785584e-07</izz>
+          </inertia>
+          <mass>0.00020272265250081666</mass>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+          	<mesh>
+             <uri>textured.dae</uri>
+            </mesh>
+          </geometry>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+          	<mesh>
+            <uri>textured.dae</uri>
+	        </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+</sdf>

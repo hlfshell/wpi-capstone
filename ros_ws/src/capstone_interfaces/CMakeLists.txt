@@ -29,8 +29,17 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ObjectDescriptionQuery.srv"
   "srv/ObjectIDQuery.srv"
   "srv/PlannerQuery.srv"
+  "srv/AddObject.srv"
   "msg/ObjectSpotted.msg"
   "msg/StateObject.msg"
+  "srv/PickUpObject.srv"
+  "srv/GiveObject.srv"
+  "msg/Room.msg"
+  "srv/GetRooms.srv"
+  "srv/RoomByCoordinates.srv"
+  "msg/HumanSpotted.msg"
+  "msg/HumanPose.msg"
+  "srv/QueryHumanLocation.srv"
   DEPENDENCIES builtin_interfaces
 )
 
