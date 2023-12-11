@@ -41,6 +41,7 @@ class NavigationModule(Node):
 
         self.__goal_handle_lock = Lock()
         self.__goal_handle: Optional[ClientGoalHandle] = None
+        self.__cancelled: bool = False
 
         self.__result_callback_lock = Lock()
         self.__result_callback: Optional[Callable[[bool, str]]] = None
@@ -71,6 +72,7 @@ class NavigationModule(Node):
         one doesn't, it simply returns
         """
         with self.__goal_handle_lock:
+            self.__cancelled = True
             if self.__goal_handle is None:
                 return
             else:
@@ -105,6 +107,56 @@ class NavigationModule(Node):
             raise "TODO"
 
         return self.move_to_synchronous(spot, distance_for_success)
+
+    def mover2(
+        self,
+        location: Tuple[float, float],
+        distance_for_success: float = 0.75,
+    ) -> Tuple[bool, str]:
+        if len(location) > 2:
+            location = (location[0], location[1])
+        spot = self.__map.closest_known_point(location, distance_for_success)
+        if len(spot) > 2:
+            self.get_logger().info(f"Errored {spot}")
+            raise "TODO"
+
+        # hacky hacky hacky
+        lock = Lock()
+        self.__end = False
+        with self.__goal_handle_lock:
+            self.__cancelled = False
+
+        def callback(msg):
+            with lock:
+                self.__end = True
+
+        # end hacky
+
+        self.move_to(spot, callback)
+
+        while True:
+            with lock:
+                if self.__end:
+                    break
+            with self.__goal_handle_lock:
+                if self.__cancelled:
+                    break
+
+            position, _ = self.get_current_pose()
+
+            distance = self.distance(location, position)
+            if distance < distance_for_success:
+                self.cancel()
+                return (True, "")
+
+            sleep(0.25)
+
+        position, _ = self.get_current_pose()
+        distance = self.distance(location, position)
+
+        # If we've reached this point we aren't close enough
+        # to succeed
+        return (False, f"{distance:.2f}m away from goal")
 
     def move_to(
         self,
@@ -255,6 +307,12 @@ class NavigationModule(Node):
                     self.__sync_complete = False
                     return self.__last_result
             sleep(0.1)
+
+    def spinner(self, rotation: float, angle_difference_acceptable: float = pi / 8):
+        """
+        spinner will spin the robot "in place" (mostly) by given radians.
+        """
+        self.__navigator.spin(rotation)
 
     def __navigate_acceptance_callback(self, future: ActionTaskFuture):
         """
