@@ -200,6 +200,7 @@ class Map:
         """
         closest_known_point returns the closest known point to the given location
         """
+
         # First we check to see if the location is known
         pixel_location = self.__meter_coordinates_to_pixel_coordinates(location)
 
@@ -207,6 +208,28 @@ class Map:
 
         if self.map[reversed] == FREE:
             return location
+
+        # We take the map and "black out" nearby pixels within a set
+        # radius to the spot. This is to prevent us picking a spot right
+        # on the edge "viable"
+        radius = max_distance / 3
+        pixel_radius = int(radius / self.__resolution)
+        map = self.map.copy()
+
+        # set all pixels within the radius from desired location to
+        # occupied
+        for x in range(-pixel_radius, pixel_radius + 1):
+            for y in range(-pixel_radius, pixel_radius + 1):
+                point = (pixel_location[1] + y, pixel_location[0] + x)
+                if (
+                    point[0] < 0
+                    or point[1] < 0
+                    or point[0] >= self.map.shape[0]
+                    or point[1] >= self.map.shape[1]
+                ):
+                    continue
+
+                map[point] = OCCUPIED
 
         # We now rotate out in a grid pattern until we find a
         # FREE square. If the total distance between the checked
@@ -242,5 +265,5 @@ class Map:
                         return (point_real, pixel_location, distance)
 
                     # Check the point
-                    if self.map[point] == FREE:
+                    if map[point] == FREE:
                         return point_real
