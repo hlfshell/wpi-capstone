@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import ast
 from abc import ABC, abstractmethod
+from functools import partial
 from threading import Lock
 from typing import Any, Callable, Dict, Optional
-
-from functools import partial
 
 # Status code constants for actions
 READY = 0
@@ -140,6 +139,14 @@ class Action(ABC):
             if self.__status == CANCELLING:
                 raise CancellationTriggeredException()
 
+    def _is_cancelled(self):
+        """
+        _is_cancelled is a thread safe method for implementing classes
+        to check if the action has been cancelled.
+        """
+        with self.__status_lock:
+            return self.__status == CANCELLING or self.__status == CANCELLED
+
     @abstractmethod
     def _cancel(self):
         """
@@ -223,15 +230,23 @@ class ActionPlanner:
     A single planner can work with multiple generated pythonic plans.
     """
 
-    def __init__(self, actions: Dict[str, Action]):
+    def __init__(
+        self,
+        actions: Dict[str, Action],
+        functions: Dict[str, Callable],
+        on_call_callback: Optional[Callable] = None,
+    ):
         """
         Creates a new action plan instance with the provided set of
         actions, instantiating to a READY status.
         """
         self.actions = actions
+        self.functions = functions
 
         self.__action_lock = Lock()
         self.__current_action: Optional[Action] = None
+
+        self.__on_call_callback: Optional[Callable] = on_call_callback
 
     def code_check(self, code: str):
         """
@@ -253,6 +268,9 @@ class ActionPlanner:
         saves it as the current action, and then executes it, returning the
         resulting outcome.
         """
+        if self.__on_call_callback is not None:
+            self.__on_call_callback(function_name, *args, **kwargs)
+
         # First we create a new action of the specific type
         action = self.actions[function_name].clone()
 
@@ -276,6 +294,30 @@ class ActionPlanner:
 
         return lambdas
 
+    def __wrapped_function(self, function_name: str, *args, **kwargs):
+        """
+        __wrapped_function is a wrapper function that will call the provided
+        function, then call the on_call_callback if provided.
+        """
+        if self.__on_call_callback is not None:
+            self.__on_call_callback(function_name, *args, **kwargs)
+
+        return self.functions[function_name](*args, **kwargs)
+
+    def __wrap_functions(self) -> Dict[str, Callable]:
+        """
+        __wrap_functions wraps the provided functions with a function that
+        will call the provided function, then call the on_call_callback if
+        provided.
+        """
+        wrapped_functions: Dict[str, Callable] = {}
+        for function_name, function in self.functions.items():
+            wrapped_functions[function_name] = partial(
+                self.__wrapped_function, function_name
+            )
+
+        return wrapped_functions
+
     def execute(self, code: str):
         """
         execute will begin executing the plan, blocking until the
@@ -290,6 +332,9 @@ class ActionPlanner:
             # Create a series of lambdas that create new Actions
             # when a given action is generated
             globals = self.__generate_lambdas()
+            # Expand our wrapped actions with the provided functions
+            functions = self.__wrap_functions()
+            globals.update(functions)
             locals = {}
             exec(code, globals, locals)
 

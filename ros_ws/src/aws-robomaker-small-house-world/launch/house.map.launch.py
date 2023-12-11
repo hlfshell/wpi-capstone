@@ -1,4 +1,5 @@
 import os
+from os import path
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -6,6 +7,11 @@ from launch.actions import IncludeLaunchDescription, GroupAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+
+os.environ["GAZEBO_MODEL_PATH"] = path.join(
+    get_package_share_directory("litterbug"), "models"
+)
 
 
 def generate_launch_description():

@@ -9,7 +9,8 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import rclpy
 from ament_index_python.packages import get_package_share_directory
-from capstone_interfaces.msg import ObjectSpotted, HumanSpotted
+from capstone_interfaces.msg import ObjectSpotted, HumanSpotted, ItemsState
+from capstone_interfaces.msg import Item as ItemMsg
 from capstone_interfaces.srv import GiveObject, PickUpObject
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -54,8 +55,8 @@ class Litterbug(Node):
         self,
         items: List[Item],
         map: Map,
-        interaction_range: float = 1.0,
-        vision_range: float = 5.0,
+        interaction_range: float = 1.5,
+        vision_range: float = 8.0,
         fov: float = math.radians(40.0),
         vision_fps: int = 12,
         models_directory: str = "./models",
@@ -123,6 +124,14 @@ class Litterbug(Node):
         # Track the changes in the world's objects at 5Hz
         # so we react to them as we'd expect w/ interactions
         self.create_timer(1.0 / 5.0, self.update_items_locations)
+        # We also broadcast the "omniscient" state of all items
+        # for management reasons
+        self.__item_state_publisher = self.create_publisher(
+            msg_type=ItemsState,
+            topic="/litterbug/items_state",
+            qos_profile=10,  # Keep last
+        )
+        self.create_timer(1.0 / 5.0, self.__publish_items_state)
 
         # Services for interaction requests
         self.__pickup_service = self.create_service(
@@ -134,6 +143,11 @@ class Litterbug(Node):
             srv_type=GiveObject,
             srv_name="place_object",
             callback=self.__give_object,
+        )
+        self.__pickup_announcement = self.create_publisher(
+            msg_type=ItemMsg,
+            topic="/litterbug/pickup",
+            qos_profile=10,  # Keep last
         )
 
     def wait_for_ready(self):
@@ -166,7 +180,7 @@ class Litterbug(Node):
                             )
                         )
                 try:
-                    self.__gazebo.spawn_item(item)
+                    self.__gazebo.spawn_item(item, self.get_logger())
                 except ItemAlreadyExists:
                     continue
 
@@ -207,7 +221,11 @@ class Litterbug(Node):
             with self.__robots_possession_lock:
                 # Remove the item from the world items
                 self.__world_items.remove(item)
-                self.__gazebo.delete_item(item)
+                try:
+                    self.__gazebo.delete_item(item)
+                except Exception as e:
+                    self.get_logger().error(str(e))
+                    raise CanNotPickUpObject(item, "Item was not present")
 
                 # Add it to our robot posessions
                 self.__robots_possession.append(item)
@@ -286,6 +304,17 @@ class Litterbug(Node):
             return response
 
         response.success = True
+
+        # Announce that we picked up the object so state can handle
+        # it
+        self.__pickup_announcement.publish(
+            ItemMsg(
+                name=item.name,
+                label=item.label,
+                x=item.origin[0],
+                y=item.origin[1],
+            )
+        )
 
         return response
 
@@ -589,6 +618,29 @@ class Litterbug(Node):
 
         return items
 
+    def __publish_items_state(self):
+        """
+        __publish_items_state publishes the current state of all items
+        in the world to the /litterbug/items_state topic
+        """
+        items = []
+        with self.__world_items_lock:
+            for item in self.__world_items:
+                items.append(
+                    ItemMsg(
+                        name=item.name,
+                        label=item.label,
+                        x=item.origin[0],
+                        y=item.origin[1],
+                    )
+                )
+
+        self.__item_state_publisher.publish(
+            ItemsState(
+                items=items,
+            )
+        )
+
     def update_items_locations(self):
         """
         Requests from the world gazebo model the list of
@@ -627,6 +679,11 @@ class Litterbug(Node):
                 if item.name in updates:
                     item.origin = updates[item.name][0]
                     item.orientation = updates[item.name][1]
+                else:
+                    # If the item is not in the updates, then
+                    # it has been removed and we need to perform
+                    # a clean up action.
+                    self.__world_items.remove(item)
 
 
 class CanNotInteractWithObject(Exception):

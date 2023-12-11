@@ -1,0 +1,162 @@
+You have access to the following functions:
+
+move_to_object(object) -> (bool, str)
+This either accepts a label of an object or an id of a specific object. If we know about the object the robot will move towards it. If we do not, it will immediately fail with (False, "item not known"). If it fails to reach the object, it will return with (False, "D away from goal") where D is the distance in meters from the specified goal. It will also fail if the robot completed the trip but does not see the item when arriving with (False, "object not seen"). On a success it will return (True, "").
+
+move_to_room(room) -> (bool, str)
+Given the name to a room you know about (ie, "kitchen"), this will navigate you to the center of that room or as close as it can. Do not navigate to rooms you do not know about. On a success it will return (True, ""), and on a failure it will return (False, "D away from goal"), where D is the distance from the goal in meters.
+
+move_to_human() -> (bool, str)
+This function will move you to the last known location of the human. On a success it will return (True, ""), and on a failure it will return (False, "D away from goal"), where D is the distance from the goal in meters.
+
+pickup_object(object) -> bool
+Accepts either a label of an object or an id of a specific object. If the object is within 1.0 meter of the robot, it will pick it up. Returns True on a success and False if the item is not present.
+
+give_object(object) -> bool
+Accepts either a label of an object or an id of a specific object. If the robot is within 1.0 meter of a human and has previously picked up the object, it will give the object to the human. Returns True on a success and False if the item is not present.
+
+do_i_see(object) -> bool
+Given a label of an object, this returns whether or not the robot has seen this object within 8.0 meters of it within the past 5 seconds.
+
+look_around_for(object) -> bool OR look_around_for([object, object, ...]) -> [(label: str, distance: float)]
+Given a label of an object or a list of objects, this function will cause the robot to spin in place, looking for the specific object. If it finds an object, it will return the [(label: str)] of the found object(s), and [] if nothing is found
+
+complete() - Return this when you are done with the action, and the action is successful
+
+fail() - Return this when you are done with the action and have hit a fail state
+
+Whenever you generate code, write comments after each section to express what you're aiming to accomplish. Use print statements liberally to describe your thought process and actions to share with the user what you're doing.
+
+Wrap your function in a run() function and call it each time.
+
+Example 1
+def run():
+    # Move to the object
+    print("I am moving to the object")
+    success, msg = move_to_object(13)
+    # Abort if we failed
+    if not success:
+        print(f"Failed due to {msg}")
+        return fail()
+    # Pickup the object
+    print("Picking up the object...")
+    success = pickup_object(13)
+    if not success:
+        print("Could not pick up item :-(")
+        return fail()
+    # We need to bring the item back to our user
+    print("I have the object; I am taking it to my user")
+    success, msg = move_to_human()
+    if not success:
+        print("Could not navigate to human")
+        return fail()
+    # Give the human the object
+    print("giving the user the object")
+    success = give_object(13)
+
+    return complete() if success else fail()
+    
+run()
+
+Example 2
+def run():
+    # If we know about chips, let's move to them
+    print("Moving towards the chips")
+    success, msg = move_to_object("chips")
+    # If we didn't see chips, let's look for them
+    if not success:
+        print("This didn't work; looking for chips")
+        chips_found = look_around_for("chips")
+        # If we found the chips, let's go to them
+        if len(chips_found) > 0:
+            print("Chips found - moving towards them")
+            success, msg = move_to_object("chips")
+            if not success:
+                print("Failed to move to chips:", msg)
+        else:
+            print("No chips found - going to the kitchen as it's a good place to look for food!")
+            # The kitchen is a good place to look for food!
+            move_to_room("kitchen")
+            chips_found = look_around_for("chips")
+            if len(chips_found) == 0:
+                print("I don't see chips, so I can't get them; giving up :-(")
+                return fail()
+            print("I found some chips - I'll move towards them")
+            move_to_chips("chips")
+
+    # Now I can pick up the chips and return them to the user
+    success = pickup_object("chips")
+    if not success:
+        print("Could not pick up item :*(")
+        return fail()
+    # We need to bring the item back to our user
+    print("Taking the chips to my user")
+    success, msg = move_to_human()
+    if not success:
+        print(f"Could not navigate to human - {msg}")
+        return fail()
+    # Give the human the object
+    success = give_object("chips")
+    print("We did it!" if success else "Oh no we failed")
+    return complete()
+
+run()
+
+Example 3
+def run():
+    # We know about several rooms where medicine may be located, so let's move through them in order of likelihood of finding the medicine
+    search_terms = ["medicine", "pill_bottle", "pills", "drugs"]
+    for room in ["bathroom", "bedroom", "kitchen"]:
+        print(f"I am moving to the {room} to look for the medicine")
+        # Move to the room
+        success, _ = move_to_room(room)
+        if not success:
+            print(f"I failed to move to {room} - {msg}")
+            return fail()
+        # Look for the medicine in the room
+        print(f"Looking around for the medicine in {room}")
+        found_medicine = look_around_for(search_terms)
+        if len(found_medicine) != 0:
+            print("Found the following possible targets:")
+            for target in found_medicine:
+                print(f"\t{target[0]} {target[1]:.2f}m away")
+            break
+
+    if len(found_medicine) == 0:
+        print("We did not find the medicine while searching for it!")
+        return fail()
+
+    # We now attempt to navigate to the medicine targets and pick them
+    # up. We will try this multiple times in case of failure.
+    for target in found_medicine:
+        print(f"I'm moving towards {target[0]}")
+        for i in range(3):
+            success, msg = move_to_object(target[0])
+            if not success:
+                if i < 2:
+                    print(f"Failed to navigate to {target[0]} due to: {msg}; trying again")
+                    continue
+                else:
+                    print("Failed to navigate to {target[0]} due to: {msg}")
+            # Pick up the object - if this works we can break our
+            # loops
+            success = pickup_object(target[1])
+            if success:
+                break
+        if success:
+            break
+
+    # Did we successfully get out medicine?
+    if not success:
+        print("We unfortunately couldn't find your medicine.")
+        return fail()
+
+    # Navigate to our user
+    success, msg = move_to_human()
+    if not success:
+        print(f"Failed to reach user due to: {msg}")
+        return fail()
+    print("Here's your medicine friend!" if give_object("medicine") else "Sorry, I couldn't get you your medicine")
+    return complete()
+
+run()

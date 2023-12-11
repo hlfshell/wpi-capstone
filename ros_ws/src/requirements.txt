@@ -23,4 +23,5 @@ netpbmfile==2023.8.30
 opencv-python==4.8.1.78
 langchain==0.0.344
 ultralytics==8.0.221
-
+tiktoken==0.5.2
+elevenlabs==0.2.27

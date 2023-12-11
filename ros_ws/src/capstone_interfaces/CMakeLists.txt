@@ -40,6 +40,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/HumanSpotted.msg"
   "msg/HumanPose.msg"
   "srv/QueryHumanLocation.srv"
+  "msg/Plan.msg"
+  "msg/Objective.msg"
+  "msg/ObjectiveStatus.msg"
+  "msg/AIPrintStatement.msg"
+  "msg/RobotAction.msg"
+  "msg/Item.msg"
+  "msg/ItemsState.msg"
   DEPENDENCIES builtin_interfaces
 )
 

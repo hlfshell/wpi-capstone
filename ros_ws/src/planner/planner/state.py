@@ -4,6 +4,8 @@ import math
 from typing import List, Tuple, Optional
 
 import rclpy
+from nav_msgs.msg import Odometry
+from time import sleep
 from threading import Lock
 from capstone_interfaces.msg import StateObject, Room, HumanSpotted
 from capstone_interfaces.srv import (
@@ -50,6 +52,17 @@ class StateModule(Node):
             QueryHumanLocation, "/human_location"
         )
 
+        self.__odometry_subscriber = self.create_subscription(
+            msg_type=Odometry,
+            topic="/odom",
+            callback=self.__pose_callback,
+            qos_profile=10,  # Keep last
+        )
+        self.__first_pose_received: bool = False
+        self.__pose_lock = Lock()
+        self.__position: Tuple[float, float] = (0.0, 0.0)
+        self.__orientation: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+
         self.wait_for_service()
 
         self.query_human_location()
@@ -73,10 +86,28 @@ class StateModule(Node):
 
         response: ObjectDescriptionQuery.Response = future.result()
 
-        return [
-            Object.FromStateObject(state_object)
-            for state_object in response.states_of_objects
-        ]
+        # objects = [
+        #     Object.FromStateObject(state_object)
+        #     for state_object in response.states_of_objects
+        # ]
+        objects = []
+        for object in response.states_of_objects:
+            objects.append(Object.FromStateObject(object))
+            self.get_logger().info(
+                f"Object: {object.id}-{object.description} ({object.location})"
+            )
+
+        for object in objects:
+            distance = self.distance_from_robot(object.position)
+            self.get_logger().info(
+                f"Distance to {object.id}:{object.description}: {distance}"
+            )
+
+        objects.sort(key=lambda object: self.distance_from_robot(object.position))
+        if len(objects) > 0:
+            self.get_logger().info(f"Sorted objects: {objects[0].position}")
+
+        return objects
 
     def query_for_object_id(self, object_id: int) -> Optional[Object]:
         """
@@ -173,6 +204,49 @@ class StateModule(Node):
                 self.__human_position[0] + delta[0],
                 self.__human_position[1] + delta[1],
             )
+
+    def robot_position(
+        self,
+    ) -> Tuple[Tuple[float, float], Tuple[float, float, float, float]]:
+        """
+        robot_position returns the last known position
+        """
+        while True:
+            with self.__pose_lock:
+                if self.__first_pose_received:
+                    break
+            sleep(0.1)
+        with self.__pose_lock:
+            return self.__position, self.__orientation
+
+    def __pose_callback(self, msg: Odometry):
+        with self.__pose_lock:
+            self.__first_pose_received = True
+
+            self.__position = (
+                msg.pose.pose.position.x,
+                msg.pose.pose.position.y,
+            )
+            self.__orientation = (
+                msg.pose.pose.orientation.x,
+                msg.pose.pose.orientation.y,
+                msg.pose.pose.orientation.z,
+                msg.pose.pose.orientation.w,
+            )
+
+    def distance_from_robot(self, location: Tuple[float, float]) -> float:
+        """
+        distance_from_robot returns the distance from the robot to a given location
+        """
+        robot_location, _ = self.robot_position()
+
+        return self.distance(robot_location, location)
+
+    def distance(self, a: Tuple[float, float], b: Tuple[float, float]) -> float:
+        """
+        __distance returns the distance between two points
+        """
+        return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
 class Object:

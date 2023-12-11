@@ -6,12 +6,17 @@ from rclpy.action.client import ClientGoalHandle
 from rclpy.task import Future as ActionTaskFuture
 from nav2_msgs.action import NavigateToPose
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseStamped
+from nav2_simple_commander.robot_navigator import BasicNavigator
+from ament_index_python.packages import get_package_share_directory
+import netpbmfile
+from os import path
+from planner.map import Map
 
 from typing import Optional, Callable, Tuple, Union
 
-import math
 from math import asin, sin, cos, atan2, sqrt, pi
-from time import sleep
+from time import sleep, time
 
 
 class NavigationModule(Node):
@@ -24,7 +29,7 @@ class NavigationModule(Node):
     def __init__(self):
         super().__init__("navigation_module")
 
-        self.__distance_for_success = 0.5
+        self.__distance_for_success = 1.0
         self.__acceptable_angle_difference = pi / 8
 
         self.__navigate = ActionClient(self, NavigateToPose, "/navigate_to_pose")
@@ -36,9 +41,13 @@ class NavigationModule(Node):
 
         self.__goal_handle_lock = Lock()
         self.__goal_handle: Optional[ClientGoalHandle] = None
+        self.__cancelled: bool = False
 
         self.__result_callback_lock = Lock()
         self.__result_callback: Optional[Callable[[bool, str]]] = None
+
+        maps_dir = path.join(get_package_share_directory("planner"), "maps")
+        self.__map = Map.FromMapFile(path.join(maps_dir, "house"))
 
         self.__odometry_subscriber = self.create_subscription(
             msg_type=Odometry,
@@ -55,12 +64,15 @@ class NavigationModule(Node):
         self.__sync_complete: bool = False
         self.__last_result: Tuple[bool, str] = (False, "")
 
+        self.__navigator = BasicNavigator()
+
     def cancel(self):
         """
         cancel will, if possible, cancel the current goal if one exists. If
         one doesn't, it simply returns
         """
         with self.__goal_handle_lock:
+            self.__cancelled = True
             if self.__goal_handle is None:
                 return
             else:
@@ -82,10 +94,74 @@ class NavigationModule(Node):
         with self.__pose_lock:
             return self.__position, self.__orientation
 
+    def mover(
+        self,
+        location: Tuple[float, float],
+        distance_for_success: float = 0.75,
+    ):
+        if len(location) > 2:
+            location = (location[0], location[1])
+        spot = self.__map.closest_known_point(location, distance_for_success)
+        if len(spot) > 2:
+            self.get_logger().info(f"Errored {spot}")
+            raise "TODO"
+
+        return self.move_to_synchronous(spot, distance_for_success)
+
+    def mover2(
+        self,
+        location: Tuple[float, float],
+        distance_for_success: float = 0.75,
+    ) -> Tuple[bool, str]:
+        if len(location) > 2:
+            location = (location[0], location[1])
+        spot = self.__map.closest_known_point(location, distance_for_success)
+        if len(spot) > 2:
+            self.get_logger().info(f"Errored {spot}")
+            raise "TODO"
+
+        # hacky hacky hacky
+        lock = Lock()
+        self.__end = False
+        with self.__goal_handle_lock:
+            self.__cancelled = False
+
+        def callback(msg):
+            with lock:
+                self.__end = True
+
+        # end hacky
+
+        self.move_to(spot, callback)
+
+        while True:
+            with lock:
+                if self.__end:
+                    break
+            with self.__goal_handle_lock:
+                if self.__cancelled:
+                    break
+
+            position, _ = self.get_current_pose()
+
+            distance = self.distance(location, position)
+            if distance < distance_for_success:
+                self.cancel()
+                return (True, "")
+
+            sleep(0.25)
+
+        position, _ = self.get_current_pose()
+        distance = self.distance(location, position)
+
+        # If we've reached this point we aren't close enough
+        # to succeed
+        return (False, f"{distance:.2f}m away from goal")
+
     def move_to(
         self,
         location: Tuple[float, float],
-        result_callback: Callable,
+        result_callback: Optional[Callable],
         distance_for_success: float = 0.75,
         acceptable_angle_difference: float = pi / 8,
         orientation: Optional[
@@ -100,6 +176,7 @@ class NavigationModule(Node):
         the goal (the navigation module's distance_for_success parameter). Note
         that a cancellation is considered a failure.
         """
+        self.get_logger().info(f"move_to: {location}")
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = "map"
         goal.pose.pose.position.x = location[0]
@@ -215,7 +292,14 @@ class NavigationModule(Node):
         with self.__sync_lock:
             self.sync_complete = False
 
-        self.spin(rotation, lambda result: None, angle_difference_acceptable)
+        def callback(msg):
+            with self.__sync_lock:
+                self.__sync_complete = True
+                with self.__goal_pose_lock:
+                    self.__goal_position = None
+                    self.__goal_orientation = None
+
+        self.spin(rotation, callback, angle_difference_acceptable)
 
         while True:
             with self.__sync_lock:
@@ -223,6 +307,12 @@ class NavigationModule(Node):
                     self.__sync_complete = False
                     return self.__last_result
             sleep(0.1)
+
+    def spinner(self, rotation: float, angle_difference_acceptable: float = pi / 8):
+        """
+        spinner will spin the robot "in place" (mostly) by given radians.
+        """
+        self.__navigator.spin(rotation)
 
     def __navigate_acceptance_callback(self, future: ActionTaskFuture):
         """
@@ -253,7 +343,16 @@ class NavigationModule(Node):
             goal_position = self.__goal_position
             goal_orientation = self.__goal_orientation
 
-        distance = self.__distance(current_position, goal_position)
+        if goal_position is None:
+            # There seems to be an errant race condition where goal
+            # position can be None due to a cancellation or double
+            # completion. In any event, we abort here if that's the
+            # case and assume we're ok
+            with self.__result_callback_lock:
+                callback = self.__result_callback
+            return
+
+        distance = self.distance(current_position, goal_position)
 
         result = distance < self.__distance_for_success
 
@@ -308,7 +407,15 @@ class NavigationModule(Node):
                 msg.pose.pose.orientation.w,
             )
 
-    def __distance(self, a: Tuple[float, float], b: [float, float]) -> float:
+    def distance_to_robot(self, location: Tuple[float, float]) -> float:
+        """
+        distance_to_robot calculates the distance between the robot
+        and the given location
+        """
+        current_position, _ = self.get_current_pose()
+        return self.distance(current_position, location)
+
+    def distance(self, a: Tuple[float, float], b: [float, float]) -> float:
         """
         __distance calculates the distance between two points
         """

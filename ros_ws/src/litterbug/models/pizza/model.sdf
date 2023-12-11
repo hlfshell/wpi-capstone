@@ -8,19 +8,21 @@ http://creativecommons.org/licenses/by/4.0/ or send a letter
 to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
 -->
 <sdf version="1.6">
-  <model name="Melissa_Doug_Felt_Food_Pizza_Set">
+  <model name="fdfsdfsdfdsf">
     <link name="link_0">
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>meshes/model.obj</uri>
+            <!-- <uri>meshes/model.obj</uri> -->
+            <uri>model://pizza/meshes/model.obj</uri>
           </mesh>
         </geometry>
       </visual>
       <collision name="collision_0">
         <geometry>
           <mesh>
-            <uri>meshes/model.obj</uri>
+            <!-- <uri>meshes/model.obj</uri> -->
+            <uri>model://pizza/meshes/model.obj</uri>
           </mesh>
         </geometry>
       </collision>

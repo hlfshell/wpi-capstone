@@ -47,10 +47,10 @@ class VisionModule(Node):
                     if object.distance(location) < 0.5:
                         object.spotted(location)
                         return
-                    else:
-                        self.__object_tracking[label].append(
-                            ObjectTracker(label, location)
-                        )
+
+                # If we've reached this point we can assume it's
+                # a new object and add it in
+                self.__object_tracking[label].append(ObjectTracker(label, location))
 
     def __pose_callback(self, msg: Odometry):
         with self.__position_lock:
@@ -100,6 +100,32 @@ class VisionModule(Node):
             #             return target.distance(location) < distance
 
             #     return False
+
+    def is_nearby_since_items(
+        self,
+        object: Union[str, int],
+        distance: float,
+        time: float,
+        location: Optional[Tuple[float, float]] = None,
+    ) -> List[Tuple[str, float]]:
+        if location is None:
+            with self.__position_lock:
+                location = self.__position
+
+        items: List[Tuple[str, float]] = []
+        with self.__object_spotted_lock:
+            if object not in self.__object_tracking:
+                return []
+
+            for target in self.__object_tracking[object]:
+                if target.last_seen < time:
+                    continue
+
+                target_distance = target.distance(location)
+                if target_distance < distance:
+                    items.append((target.label, target_distance))
+
+        return items
 
 
 class ObjectTracker:
