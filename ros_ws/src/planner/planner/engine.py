@@ -25,6 +25,8 @@ from planner.robot_actions import (
 from planner.state import StateModule
 from planner.vision import VisionModule
 
+from time import sleep
+
 
 class RobotEngine(Node):
     """
@@ -95,6 +97,7 @@ class RobotEngine(Node):
         out = StdOutRedirect(self.__broadcast)
         with redirect_stdout(out):
             self.__action_planner.execute(code)
+            sleep(0.25)
 
         # Get the result if possible
         with self.__result_lock:
