@@ -8,7 +8,7 @@
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>model://Toilet/meshes/toilet.obj</uri>
+            <uri>model://toilet/meshes/toilet.obj</uri>
             <scale>1.75 1.75 1.75</scale>
           </mesh>
         </geometry>
@@ -17,7 +17,7 @@
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>model://Toilet/meshes/toilet.obj</uri>
+            <uri>model://toilet/meshes/toilet.obj</uri>
             <scale>1.75 1.75 1.75</scale>
           </mesh>
         </geometry>
