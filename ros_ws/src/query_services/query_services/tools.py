@@ -30,8 +30,8 @@ def save_input_to_json(state_db, format_template) -> None:
     for state_input in state_db:
         for entry in state_input:
             format_type = format_template[state_input.index(entry)]
-            if format_type == "id":
-                continue
+            # if format_type == "id":
+            #     continue
             state_object[format_type] = entry
         data[count] = state_object
         with open("state.json", "w") as f:
