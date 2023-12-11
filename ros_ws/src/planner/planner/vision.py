@@ -33,14 +33,6 @@ class VisionModule(Node):
         )
         self.__position_lock = Lock()
         self.__position: Tuple[float, float] = (0.0, 0.0)
-        self.__debug = self.create_timer(1, self.__debug_callback)
-
-    def __debug_callback(self):
-        with self.__object_spotted_lock:
-            count = 0
-            for label, objects in self.__object_tracking.items():
-                count += len(objects)
-            self.get_logger().info(f"Tracking {count} objects")
 
     def __object_spotted_callback(self, msg: ObjectSpotted):
         label = msg.description
