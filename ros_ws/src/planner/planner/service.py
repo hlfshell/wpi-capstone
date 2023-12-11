@@ -83,13 +83,13 @@ class Service(Node):
         self.__history: Dict[str, List[ObjectiveStatus]] = {}
 
         self.__objective_subscription = self.create_subscription(
-            Objective, "objective", self.__objective_callback, 10
+            Objective, "/objective", self.__objective_callback, 10
         )
 
         self.__plan_processor = self.create_timer(0.5, self.__process_plan)
         self.__plan_executor = self.create_timer(0.5, self.__execute_plan)
 
-        Thread(target=self.test).start()
+        # Thread(target=self.test).start()
 
     def test(self):
         sleep(5.0)
@@ -116,7 +116,7 @@ class Service(Node):
         """
         Assign a new objective, cancelling existing ones first
         """
-
+        self.get_logger().info("Received new objective")
         # First, if there is an existing objective, we need to
         # cancel the plan
         with self.__lock:
@@ -131,6 +131,7 @@ class Service(Node):
             message="new objective received",
         )
 
+        self.get_logger().info("Setting up objective state")
         with self.__lock:
             self.__objective_id = msg.id
             self.__objective = msg.objective
@@ -217,8 +218,13 @@ class Service(Node):
                 plan_id = str(uuid4())
                 self.get_logger().info("Generating plans")
                 plans: List[str] = self.__ai.generate_plans(objective)
+                if len(plans) == 0:
+                    raise Exception("No plans generated")
                 self.get_logger().info("Getting best plan")
+                # plan = plans[0]
                 plan = self.__ai.get_best_plan(objective, plans)
+                if plan is None:
+                    raise Exception("No plan generated")
                 self.get_logger().info("Got best plan!!!!!!!!!")
                 break
             except Exception as e:
@@ -246,6 +252,7 @@ class Service(Node):
 
         # Set our plan and announce its creation
         self.get_logger().info("Setting plan")
+
         with self.__lock:
             self.__plan = plan
             self.__plan_id = plan_id
