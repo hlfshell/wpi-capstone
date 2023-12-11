@@ -185,7 +185,7 @@ class AI(Node):
 
     def rate_plans(
         self, objective: str, plans: List[str], raters: int = 5
-    ) -> List[int]:
+    ) -> Tuple[Dict[int, int].Dict[int, List[str]]]:
         """
         rate_plans takes a list of plans and returns a list of
         integers representing the index of each plan per its
@@ -277,7 +277,18 @@ class AI(Node):
         best one according to the LLM's rating system. If
         no plans are valid, None is returned.
         """
-        scores, _ = self.rate_plans(objective, plans)
+        scores, reasons = self.rate_plans(objective, plans)
+        scores: Dict[int, int]
+        reasons: Dict[int, List[str]]
+        with open("./ratings.out", "w") as f:
+            out = []
+            for plan, score in scores.items():
+                out.append(f"***** Plan: {plan + 1} *****")
+                out.append(f"Score: {score}")
+                out.append("Raters' reasoning:")
+                for reason in reasons[plan]:
+                    out.append(f"\t-{reason}")
+            f.write("\n".join(out))
 
         if len(scores) == 0:
             return None
