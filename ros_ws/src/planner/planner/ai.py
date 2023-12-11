@@ -185,7 +185,7 @@ class AI(Node):
 
     def rate_plans(
         self, objective: str, plans: List[str], raters: int = 5
-    ) -> Tuple[Dict[int, int].Dict[int, List[str]]]:
+    ) -> Tuple[Dict[int, int], Dict[int, List[str]]]:
         """
         rate_plans takes a list of plans and returns a list of
         integers representing the index of each plan per its
