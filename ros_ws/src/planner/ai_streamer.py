@@ -19,8 +19,9 @@ class Printer(Node):
 
         if "ELEVENLABS_API_KEY" in os.environ:
             set_api_key(os.environ["ELEVENLABS_API_KEY"])
+            self.__enable_voice = True
         else:
-            raise "No ElevenLabs API key found."
+            self.__enable_voice = False
 
         self.__ai_out_sub = self.create_subscription(
             AIPrintStatement,
@@ -54,7 +55,7 @@ class Printer(Node):
         out = msg.out.strip()
         if out != "":
             print(f"[AI] {out}")
-            # self.__voice(out)
+            self.__voice(out)
 
     def __objective_status(self, msg: ObjectiveStatus):
         print(f"[Objective] {msg.id} - {msg.status}")
@@ -64,18 +65,24 @@ class Printer(Node):
 
     def __objective(self, msg: Objective):
         print(f"***** [New Objective] {msg.id}: {msg.objective} *****")
-        # phrases = [
-        #     "Okay, let's go!",
-        #     "Sounds good. Let me create a plan.",
-        #     "Cool - let's get on that.",
-        #     "Beep boop, let's do it.",
-        #     "Alright, let's see what I can do.",
-        # ]
-        # phrase = choice(phrases)
-        # self.__voice(f"New objective received: {msg.objective}. {phrase}")
+        phrases = [
+            "Okay, let's go!",
+            "Sounds good. Let me create a plan.",
+            "Cool - let's get on that.",
+            "Beep boop, let's do it.",
+            "Alright, let's see what I can do.",
+        ]
+        phrase = choice(phrases)
+        self.__voice(f"New objective received: {msg.objective}. {phrase}")
 
     def __voice(self, out: str):
+        if not self.__enable_voice:
+            return
         try:
+            if len(out) > 100:
+                return
+            # Replace "_" with " "
+            out = out.replace("_", " ")
             audio = generate(
                 text=out,
                 voice="fuTxl7jIp6JGHlH2L9DW",
