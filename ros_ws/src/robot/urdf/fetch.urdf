@@ -57,7 +57,8 @@
     <parent link="base_link" />
     <child link="r_wheel_link" />
     <axis xyz="0 1 0" />
-  <limit effort="8.85" velocity="17.4" /></joint>
+  <!--<limit effort="8.85" velocity="17.4" />-->
+  </joint>
   <link name="l_wheel_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0" />
@@ -86,7 +87,8 @@
     <parent link="base_link" />
     <child link="l_wheel_link" />
     <axis xyz="0 1 0" />
-  <limit effort="8.85" velocity="17.4" /></joint>
+  <!--<limit effort="8.85" velocity="17.4" />-->
+  </joint>
   <link name="torso_lift_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-0.0013 -0.0009 0.2935" />
@@ -109,7 +111,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="torso_lift_joint" type="prismatic">
+  <joint name="torso_lift_joint" type="fixed">
     <origin rpy="-6.123E-17 0 0" xyz="-0.086875 0 0.37743" />
     <parent link="base_link" />
     <child link="torso_lift_link" />
@@ -138,7 +140,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="head_pan_joint" type="revolute">
+  <joint name="head_pan_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.053125 0 0.603001417713939" />
     <parent link="torso_lift_link" />
     <child link="head_pan_link" />
@@ -166,7 +168,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="head_tilt_joint" type="revolute">
+  <joint name="head_tilt_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.14253 0 0.057999" />
     <parent link="head_pan_link" />
     <child link="head_tilt_link" />
@@ -195,8 +197,8 @@
       </geometry>
     </collision>
   </link>
-  <joint name="shoulder_pan_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.119525 0 0.34858" />
+  <joint name="shoulder_pan_joint" type="fixed">
+    <origin rpy="0 0 1.9" xyz="0.119525 0 0.34858" />
     <parent link="torso_lift_link" />
     <child link="shoulder_pan_link" />
     <axis xyz="0 0 1" />
@@ -225,11 +227,11 @@
       </geometry>
     </collision>
   </link>
-  <joint name="shoulder_lift_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.117 0 0.0599999999999999" />
+  <joint name="shoulder_lift_joint" type="fixed">
+    <origin rpy="0 1.39 0" xyz="0.117 0 0.0599999999999999" />
     <parent link="shoulder_pan_link" />
     <child link="shoulder_lift_link" />
-    <axis xyz="0 1 0" />
+    <axis xyz="0 0.9 0" />
     <dynamics damping="1.0" />
     <limit effort="131.76" lower="-1.221" upper="1.518" velocity="1.454" />
   </joint>
@@ -255,7 +257,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="upperarm_roll_joint" type="continuous">
+  <joint name="upperarm_roll_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.219 0 0" />
     <parent link="shoulder_lift_link" />
     <child link="upperarm_roll_link" />
@@ -285,8 +287,8 @@
       </geometry>
     </collision>
   </link>
-  <joint name="elbow_flex_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.133 0 0" />
+  <joint name="elbow_flex_joint" type="fixed">
+    <origin rpy="0 2.0 0" xyz="0.133 0 0" />
     <parent link="upperarm_roll_link" />
     <child link="elbow_flex_link" />
     <axis xyz="0 1 0" />
@@ -315,7 +317,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="forearm_roll_joint" type="continuous">
+  <joint name="forearm_roll_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.197 0 0" />
     <parent link="elbow_flex_link" />
     <child link="forearm_roll_link" />
@@ -345,8 +347,8 @@
       </geometry>
     </collision>
   </link>
-  <joint name="wrist_flex_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.1245 0 0" />
+  <joint name="wrist_flex_joint" type="fixed">
+    <origin rpy="0 1.5 0" xyz="0.1245 0 0" />
     <parent link="forearm_roll_link" />
     <child link="wrist_flex_link" />
     <axis xyz="0 1 0" />
@@ -375,7 +377,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="wrist_roll_joint" type="continuous">
+  <joint name="wrist_roll_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.1385 0 0" />
     <parent link="wrist_flex_link" />
     <child link="wrist_roll_link" />
@@ -411,8 +413,8 @@
   <link name="r_gripper_finger_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-0.01 0 0" />
-      <mass value="0.0798" />
-      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002" />
+     <mass value="0.0798" />
+     <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002" />
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0.101425 0" />
@@ -436,7 +438,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="r_gripper_finger_joint" type="prismatic">
+  <joint name="r_gripper_finger_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0.015425 0" />
     <parent link="gripper_link" />
     <child link="r_gripper_finger_link" />
@@ -472,7 +474,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="l_gripper_finger_joint" type="prismatic">
+  <joint name="l_gripper_finger_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 -0.015425 0" />
     <parent link="gripper_link" />
     <child link="l_gripper_finger_link" />
@@ -587,7 +589,7 @@
     </collision>
   </link>
   <joint name="laser_joint" type="fixed">
-    <origin rpy="3.14159265359 0 0" xyz="0.235 0 0.2878" />
+    <origin rpy="3.14159265359 0 0" xyz="0.22 0 0.2878" />
     <parent link="base_link" />
     <child link="laser_link" />
     <axis xyz="0 0 0" />
