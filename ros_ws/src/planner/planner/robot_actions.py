@@ -5,7 +5,7 @@ import rclpy
 
 import numpy as np
 
-from typing import Optional, Tuple, List, Union
+from typing import Dict, Optional, Tuple, List, Union
 from math import pi, degrees
 from time import sleep
 
@@ -128,7 +128,8 @@ class MoveToObject(Action):
 
         location = object.position
 
-        self.__navigator.mover(location, 0.75)
+        self.__navigator.mover2(location, 0.75)
+        sleep(0.25)
 
         # If we see the object within set distance in the past
         # five seconds, we succeed
@@ -430,17 +431,26 @@ class LookAround(Action):
         # Move through each item and see if we essentially "duplicated"
         # objects by determining a match on label and a "too close"
         # distance
-        for i in range(len(items)):
-            for j in range(len(items)):
-                if i == j:
-                    continue
 
-                item1 = items[i]
-                item2 = items[j]
+        objects: Dict[str, List[float]] = {}
 
-                if item1[0] == item2[0] and item1[1] < 0.25:
-                    items.pop(i)
-                    break
+        for item in items:
+            if item[0] not in objects:
+                objects[item[0]] = [item[1]]
+            else:
+                for distance in objects[item[0]]:
+                    if abs(distance - item[1]) < 0.1:
+                        # Too close, throw it out
+                        continue
+
+                    objects[item[0]].append(item[1])
+
+        # Convert objects to a list again
+        items = []
+        for key in objects:
+            for distance in objects[key]:
+                items.append((key, distance))
+
         return items
 
     def _execute(self, objects_to_look_for: Union[str, int, List[str], List[int]]):
@@ -466,8 +476,10 @@ class LookAround(Action):
             # as nav2 allows error room, and tends to undershoot in
             # practice. Plus the important thing is room coverage,
             # not precision here.
-            rotation = (pi / 2) + (pi / 8)
+            # rotation = (pi / 2) + (pi / 8)
+            rotation = pi / 2
             self.__navigation.spin_synchronous(rotation)
+            # self.__navigation.spinner(rotation)
 
             # Check to see if we canceled the rotation since rotating
             with self.__cancel_lock:
