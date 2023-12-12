@@ -26,6 +26,8 @@ class InteractionModule(Node):
         """
         pickup_object will call the pickup service with the given object name
         """
+        if object_id == "boots":
+            object_id = "boot"
         request = PickUpObjectMsg.Request()
         request.object = object_id
         future = self.__pickup_client.call_async(request)

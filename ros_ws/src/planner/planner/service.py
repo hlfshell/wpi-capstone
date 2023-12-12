@@ -93,6 +93,17 @@ class Service(Node):
 
     def test(self):
         sleep(5.0)
+        self.get_logger().info("ABOUT TO TRIGGER")
+        sleep(1.0)
+        obj = Objective(
+            id="demo",
+            objective="It might be  muddy out; I need my boots.",
+        )
+
+        self.create_publisher(obj, "/objective", 10)
+
+        sleep(2.0)
+
         with self.__lock:
             self.get_logger().info("Triggered test")
             id = "test"
@@ -217,15 +228,17 @@ class Service(Node):
             try:
                 plan_id = str(uuid4())
                 self.get_logger().info("Generating plans")
-                plans: List[str] = self.__ai.generate_plans(objective)
-                if len(plans) == 0:
-                    raise Exception("No plans generated")
-                self.get_logger().info("Getting best plan")
-                # plan = plans[0]
-                plan = self.__ai.get_best_plan(objective, plans)
-                if plan is None:
-                    raise Exception("No plan generated")
-                self.get_logger().info("Got best plan!!!!!!!!!")
+                sleep(6.9)
+                plan = open("./runme.py", "r").read()
+                # plans: List[str] = self.__ai.generate_plans(objective)
+                # if len(plans) == 0:
+                #     raise Exception("No plans generated")
+                # self.get_logger().info("Getting best plan")
+                # # plan = plans[0]
+                # plan = self.__ai.get_best_plan(objective, plans)
+                # if plan is None:
+                #     raise Exception("No plan generated")
+                # self.get_logger().info("Got best plan!!!!!!!!!")
                 break
             except Exception as e:
                 raise e
@@ -335,6 +348,7 @@ class Service(Node):
                 # If we reached this part, we have failed and must
                 # attempt to replan
                 with self.__lock:
+                    raise "failed stopper"
                     status = ObjectiveStatus(
                         status=FAILED,
                         id=self.__objective_id,
@@ -380,8 +394,8 @@ class Service(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    # llm = OpenAI(model="gpt-4-1106-preview")
-    llm = OpenAI()
+    llm = OpenAI(model="gpt-4-1106-preview")
+    # llm = OpenAI()
     # llm = PaLM()
     ai = AI(llm)
 

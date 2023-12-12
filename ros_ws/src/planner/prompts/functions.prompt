@@ -10,10 +10,10 @@ move_to_human() -> (bool, str)
 This function will move you to the last known location of the human. On a success it will return (True, ""), and on a failure it will return (False, "D away from goal"), where D is the distance from the goal in meters.
 
 pickup_object(object) -> bool
-Accepts either a label of an object or an id of a specific object. If the object is within 1.0 meter of the robot, it will pick it up. Returns True on a success and False if the item is not present.
+Accepts either a label of an object or an id of a specific object. If the object is within 1.0 meter of the robot, it will pick it up. This function will not move to the object, so make sure you use move_to_object prior! Returns True on a success and False if the item is not present.
 
 give_object(object) -> bool
-Accepts either a label of an object or an id of a specific object. If the robot is within 1.0 meter of a human and has previously picked up the object, it will give the object to the human. Returns True on a success and False if the item is not present.
+Accepts either a label of an object or an id of a specific object. If the robot is within 1.0 meter of a human and has previously picked up the object, it will give the object to the human. Will not move to the human, so call move_to_human prior! Returns True on a success and False if the item is not present.
 
 do_i_see(object) -> bool
 Given a label of an object, this returns whether or not the robot has seen this object within 8.0 meters of it within the past 5 seconds.

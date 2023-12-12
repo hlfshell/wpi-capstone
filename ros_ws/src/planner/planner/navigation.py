@@ -104,7 +104,13 @@ class NavigationModule(Node):
         spot = self.__map.closest_known_point(location, distance_for_success)
         if len(spot) > 2:
             self.get_logger().info(f"Errored {spot}")
-            raise "TODO"
+            # Trying one more time w/ a larger distance
+            # for success
+            spot = self.__map.closest_known_point(location, distance_for_success + 0.25)
+            if len(spot) > 2:
+                self.get_logger().info(f"Errored {spot}")
+                # Well crap
+                raise "TODO"
 
         return self.move_to_synchronous(spot, distance_for_success)
 
@@ -115,10 +121,17 @@ class NavigationModule(Node):
     ) -> Tuple[bool, str]:
         if len(location) > 2:
             location = (location[0], location[1])
+        self.get_logger().info(f"LOCATION: {location}")
         spot = self.__map.closest_known_point(location, distance_for_success)
         if len(spot) > 2:
             self.get_logger().info(f"Errored {spot}")
-            raise "TODO"
+            # Trying one more time w/ a larger distance
+            # for success
+            spot = self.__map.closest_known_point(location, distance_for_success + 0.25)
+            if len(spot) > 2:
+                self.get_logger().info(f"Errored {spot}")
+                # Well crap
+                raise "TODO"
 
         # hacky hacky hacky
         lock = Lock()
@@ -312,7 +325,10 @@ class NavigationModule(Node):
         """
         spinner will spin the robot "in place" (mostly) by given radians.
         """
-        self.__navigator.spin(rotation)
+
+        self.__navigator.spin(rotation, time_allowance=5)
+        while not self.__navigator.isTaskComplete():
+            sleep(0.1)
 
     def __navigate_acceptance_callback(self, future: ActionTaskFuture):
         """

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from capstone_interfaces.msg import ObjectSpotted, StateObject
+from capstone_interfaces.msg import ObjectSpotted, StateObject, PickupObject
 from capstone_interfaces.srv import AddObject, ObjectDescriptionQuery
 from query_services import database_functions
 
@@ -31,6 +31,10 @@ class AddObjectNode(Node):
             ObjectSpotted, "/object_spotted", self.handle_spotted_object, QUEUE_SIZE
         )
         self.subscription  # prevent unused variable warning
+
+        self.__pickup_subscription = self.create_subscription(
+            PickupObject, "/litterbug/pickup_object", self.__handle_pickup, 10
+        )
 
         self.add_object_client = self.create_client(AddObject, "add_new_object")
         while not self.add_object_client.wait_for_service(timeout_sec=1.0):
@@ -70,6 +74,19 @@ class AddObjectNode(Node):
 
         # Close the connection
         db.close()
+
+    def __handle_pickup(self, msg: PickupObject):
+        """ """
+        # Disabled to known bugs; doesnt work well
+        # with queued vision spots.
+        return
+        with self.__item_memory_lock:
+            # Find if the ID is in our objects list
+            for description in self.__item_memory:
+                for item in self.__item_memory[description]:
+                    if item.id == msg.id:
+                        self.__item_memory[description].remove(item)
+                        break
 
     def found_object(self, info: ObjectSpotted):
         """

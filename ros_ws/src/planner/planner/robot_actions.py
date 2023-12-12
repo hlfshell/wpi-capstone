@@ -478,7 +478,8 @@ class LookAround(Action):
             # not precision here.
             # rotation = (pi / 2) + (pi / 8)
             rotation = pi / 2
-            self.__navigation.spin_synchronous(rotation)
+            # self.__navigation.spin_synchronous(rotation)
+            self.__navigation.spinner(rotation)
             # self.__navigation.spinner(rotation)
 
             # Check to see if we canceled the rotation since rotating

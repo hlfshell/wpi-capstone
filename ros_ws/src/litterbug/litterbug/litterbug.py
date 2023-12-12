@@ -222,7 +222,18 @@ class Litterbug(Node):
                 # Remove the item from the world items
                 self.__world_items.remove(item)
                 try:
-                    self.__gazebo.delete_item(item)
+                    if item.label in ["boots", "boot"]:
+                        self.get_logger().info("Hacky logic detected")
+                        boots = [item]
+                        # remove the pair
+                        for i in self.__world_items:
+                            if i.label in ["boots", "boot"]:
+                                boots.append(i)
+                        for i in boots:
+                            self.get_logger().info(f"Removing boot {i}")
+                            self.__gazebo.delete_item(i)
+                    else:
+                        self.__gazebo.delete_item(item)
                 except Exception as e:
                     self.get_logger().error(str(e))
                     raise CanNotPickUpObject(item, "Item was not present")

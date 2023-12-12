@@ -54,7 +54,7 @@ class QuestionAnswerService(Node):
 
         quantile = res["similarities"].quantile(0.75)
         res = res[res["similarities"] > quantile]
-        print("prior", res)
+        # self.get_logger().info(f"res: {res}")
 
         state_objects: List[StateObject] = []
         for index, row in res.iterrows():
